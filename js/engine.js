@@ -245,30 +245,18 @@ function sampleSet(weights, rng) {
  * @returns {number}       클수록 선호되는 점수
  */
 export function scoreSetCohesion(set, stats) {
-  const d = describeSet(set);
-
-  // --- 1) 쌍 연관성: 15개 쌍의 lift 평균 --------------------------------
-  // lift = 실제 동시출현 / 우연히 기대되는 동시출현. 1.0이면 우연과 같다.
-  // 번호별 점수는 45개를 따로 보므로 "이 6개가 서로 어울리는가"를 원리적으로
-  // 알 수 없다. 조합에서만 나오는 신호라 여기서는 이것이 주된 근거가 된다.
+  // 현재는 보정하지 않는다. 0을 돌려주면 후보들이 전부 동점이 되어
+  // 맨 처음 후보가 그대로 채택된다.
   //
-  // freqRate 나 gap.hazard 는 일부러 쓰지 않는다. 이미 scoreNumbers 의
-  // 4개 지표에 들어 있어, 여기서 또 쓰면 같은 신호를 두 번 세게 된다.
-  let liftSum = 0, pairs = 0;
-  for (let a = 0; a < d.sorted.length; a++) {
-    for (let b = a + 1; b < d.sorted.length; b++) {
-      liftSum += stats.lift[d.sorted[a]][d.sorted[b]];
-      pairs++;
-    }
-  }
-  const pairLift = pairs > 0 ? liftSum / pairs : 1;
-
-  // --- 2) 구간 분산: 거의 동점일 때만 갈리는 약한 보정 -------------------
-  // 필터는 "3개 구간 이상"이라는 하한만 본다. 실측 최빈값은 4개 구간이므로
-  // 3보다 4를 조금 선호한다. 가중치를 작게 둬서 1)의 판단을 뒤집지 못하게 한다.
-  const spread = 1 - Math.abs(d.bands - 4) / 4;
-
-  return pairLift + 0.03 * spread;
+  // 한때 여기서 "15개 쌍의 lift 평균"을 점수로 썼다. 조합에서만 나오는
+  // 신호라 근거는 그럴듯했지만, 백테스트에서 효과가 없어 걷어냈다.
+  //   미적용 0.7801 (t=-1.37)  ->  적용 0.7757 (t=-1.64)   (600회차 x 20게임)
+  // 한 쌍의 기대 동시출현이 22회뿐이라 관측된 lift 편차는 대부분 표본
+  // 오차다. 그걸 좇아 고르는 것은 과거의 우연을 미래에 투영하는 일이다.
+  //
+  // 다른 조합 수준 지표를 시험해 보고 싶다면 여기에 넣고
+  // `npm run backtest` 로 효과를 측정하면 된다. 배선은 그대로 살아 있다.
+  return 0;
 }
 
 /** 시드 기반 난수 — 같은 시드면 같은 결과가 나와 재현이 가능하다. */

@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  buildStats, scoreNumbers, generateGames, describeSet, scoreSetCohesion,
+  buildStats, scoreNumbers, generateGames, scoreSetCohesion,
   passesFilters, DEFAULT_FILTERS, softmaxWeights, makeRng, CONST,
 } from '../js/engine.js';
 
@@ -73,19 +73,10 @@ check('필터 통과 조합은 실제로 필터를 만족',
 check('과거 1등 조합과 동일한 조합 없음',
   strict.every(g => !stats.seenSets.has(g.nums.join('-'))));
 
-console.log('\n[4-b] 조합 응집도 scoreSetCohesion');
+console.log('\n[4-b] 쌍 연관성 lift 계산');
 {
-  const sample = draws.slice(-30).map(r => r.slice(2, 8));
-  const vals = sample.map(s => scoreSetCohesion(s, stats));
-  check('모두 유한한 수', vals.every(Number.isFinite), String(vals.slice(0, 3)));
-  check('값이 상수가 아님 (동점 남발 안 함)', new Set(vals.map(v => v.toFixed(6))).size > 25,
-    new Set(vals.map(v => v.toFixed(6))).size + '/30 서로 다름');
-  check('정렬 순서와 무관', (() => {
-    const s = sample[0];
-    const shuffled = [...s].reverse();
-    return Math.abs(scoreSetCohesion(s, stats) - scoreSetCohesion(shuffled, stats)) < 1e-12;
-  })());
-  // lift 의 기준선. 비복원 추출 보정이 빠지면 여기가 0.85 로 눌린다.
+  // lift 의 기준선. 기대 동시출현을 p_i*p_j*T 로 잡으면(독립 추출 가정)
+  // 모든 값이 (5/44)/(6/45) = 0.8523 배로 눌린다. 로또는 비복원 추출이다.
   // 범위를 좁게 잡아야 그 오류를 잡을 수 있다.
   const rngT = makeRng(4242);
   const randSet = () => {
@@ -105,29 +96,16 @@ console.log('\n[4-b] 조합 응집도 scoreSetCohesion');
   const baseline = rand2000.reduce((a, s) => a + meanLift(s), 0) / rand2000.length;
   check('무작위 조합의 평균 lift = 1.0 (비복원 보정 확인)',
     Math.abs(baseline - 1) < 0.02, baseline.toFixed(4));
+  const above = rand2000.filter(s => meanLift(s) > 1).length;
+  check('lift 가 1.0 양쪽으로 분포', above > 500 && above < 1500, above + '/2000 이 1.0 초과');
+  check('lift 대각선(i===j)은 쓰지 않음',
+    Array.from({ length: 45 }, (_, i) => stats.lift[i + 1][i + 1]).every(v => v === 0));
 
-  // 쌍 연관성이 높은 조합이 실제로 더 높은 점수를 받는가
-  const high = [], low = [];
-  for (const s of rand2000) {
-    (meanLift(s) > 1 ? high : low).push(scoreSetCohesion(s, stats));
-  }
-  const avg = a => a.reduce((x, y) => x + y, 0) / (a.length || 1);
-  check('양쪽 표본이 모두 존재', high.length > 100 && low.length > 100,
-    high.length + ' vs ' + low.length);
-  check('lift 높은 조합이 더 높은 점수', avg(high) > avg(low),
-    avg(high).toFixed(3) + ' vs ' + avg(low).toFixed(3));
-
-  // 구간 분산 보정이 주 신호를 뒤집지 않는지
-  check('구간 보정은 0.03 이하로만 기여', (() => {
-    let maxGap = 0;
-    for (const s of sample) {
-      const d = describeSet(s);
-      let sum = 0, c = 0;
-      for (let a = 0; a < 6; a++) for (let b = a + 1; b < 6; b++) { sum += stats.lift[d.sorted[a]][d.sorted[b]]; c++; }
-      maxGap = Math.max(maxGap, Math.abs(scoreSetCohesion(s, stats) - sum / c));
-    }
-    return maxGap <= 0.03 + 1e-9;
-  })());
+  // 조합 응집도는 현재 보정하지 않는다. 쌍 연관성을 점수로 써 봤으나
+  // 백테스트에서 효과가 없어(0.7801 -> 0.7757) 걷어냈다.
+  const sample = draws.slice(-20).map(r => r.slice(2, 8));
+  check('scoreSetCohesion 은 현재 무보정(0)',
+    sample.every(s => scoreSetCohesion(s, stats) === 0));
 }
 
 console.log('\n[5] 재현성');
