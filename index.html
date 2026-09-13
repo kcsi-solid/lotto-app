@@ -203,6 +203,20 @@
     </div>
   </div>
 
+  <!-- 네이티브 앱에서 인앱 결제를 쓸 수 있을 때만 monetize.js 가 hidden 을 벗긴다.
+       웹과 단일 파일에서는 끝까지 숨어 있다. -->
+  <div class="card" id="adFreeCard" hidden>
+    <h2>광고 제거</h2>
+    <p class="muted">
+      한 번 구매하면 이 기기에서 광고가 사라집니다. 분석·생성 기능은 무료 버전과 완전히 같습니다.
+    </p>
+    <div class="btn-row">
+      <button id="buyAdFree" class="btn btn-primary">광고 제거 구매</button>
+      <button id="restorePurchase" class="btn btn-ghost">구매 복원</button>
+    </div>
+    <p id="adFreeStatus" class="status" aria-live="polite"></p>
+  </div>
+
   <div class="card">
     <button id="resetAll" class="btn btn-ghost">설정 초기화</button>
   </div>
@@ -212,6 +226,7 @@
 
 <footer class="foot">
   <p>본 프로그램은 통계 분석 도구이며 당첨을 보장하지 않습니다. 1등 확률은 8,145,060분의 1입니다.</p>
+  <p><a href="privacy.html">개인정보처리방침</a></p>
 </footer>
 
 <script type="module" src="js/app.js"></script>

@@ -9,6 +9,7 @@ import {
   buildStats, scoreNumbers, generateGames, scoreSetCohesion,
   passesFilters, DEFAULT_FILTERS, softmaxWeights, makeRng, CONST,
 } from '../js/engine.js';
+import { shouldShowInterstitial } from '../js/monetize.js';
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const db = JSON.parse(fs.readFileSync(path.join(root, 'data', 'draws.json'), 'utf8'));
@@ -120,6 +121,26 @@ const tiny = buildStats(draws.slice(0, 2), {});
 check('2회차 데이터로도 오류 없이 동작', Number.isFinite(scoreNumbers(tiny).score[1]));
 const one = buildStats(draws.slice(0, 1), {});
 check('1회차 데이터로도 오류 없이 동작', generateGames(one, scoreNumbers(one), 3, { seed: 1 }).length === 3);
+
+console.log('\n[7] 전면 광고 정책');
+// monetize.js 는 네이티브에서만 돌지만 이 함수만은 순수 로직이라 여기서 검증할 수 있다.
+// 시각을 인자로 주입해 실제 시간을 기다리지 않는다.
+const MIN = 60_000;
+const adBase = { startedAt: 0, generateCount: 3, interstitialShownAt: 0, interstitialCount: 0 };
+const at = (over, now) => shouldShowInterstitial({ ...adBase, ...over }, now);
+
+check('1회 생성에는 안 띄움', at({ generateCount: 1 }, 10 * MIN) === false);
+check('2회 생성에도 안 띄움', at({ generateCount: 2 }, 10 * MIN) === false);
+check('3회 생성부터 띄움', at({}, 10 * MIN) === true);
+check('시작 45초 전에는 연타해도 안 띄움', at({ generateCount: 9 }, 30_000) === false);
+check('시작 45초 후에는 띄움', at({ generateCount: 9 }, 50_000) === true);
+check('쿨다운 3분 안에는 안 띄움', at({ interstitialShownAt: 9 * MIN, interstitialCount: 1 }, 11 * MIN) === false);
+check('쿨다운 3분 후에는 띄움', at({ interstitialShownAt: 5 * MIN, interstitialCount: 1 }, 9 * MIN) === true);
+check('세션 상한 2회를 넘기면 안 띄움', at({ interstitialShownAt: MIN, interstitialCount: 2 }, 100 * MIN) === false);
+check('상한 직전(1회)은 아직 띄움', at({ interstitialShownAt: MIN, interstitialCount: 1 }, 100 * MIN) === true);
+// 광고를 한 번도 안 띄운 세션에서 interstitialShownAt 은 0 이다. 이걸 시각으로 취급하면
+// "아주 오래전"이 되어 쿨다운을 건너뛰는데, 첫 광고에는 그게 의도한 동작이다.
+check('첫 광고는 쿨다운을 따지지 않음', at({ interstitialShownAt: 0 }, MIN) === true);
 
 console.log('\n--- 샘플 출력 (시드 20260913, 5게임) ---');
 const rank = Array.from({ length: 45 }, (_, i) => i + 1).sort((x, y) => scoring.score[y] - scoring.score[x]);

@@ -1,0 +1,11 @@
+{
+  "appId": "com.kcseo.lottoanalyzer",
+  "appName": "로또 번호 분석기",
+  "webDir": "dist/web",
+  "android": {
+    "allowMixedContent": false
+  },
+  "server": {
+    "androidScheme": "https"
+  }
+}

@@ -44,6 +44,13 @@ body {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
+/* 네이티브 앱에서 하단 배너 광고가 실제로 떴을 때만 monetize.js 가 붙인다.
+   광고가 조작 요소나 콘텐츠를 가리면 AdMob 정책 위반이므로 그만큼 여백을 확보한다.
+   적응형 배너는 기기에 따라 50~60dp 사이라 넉넉히 잡았다. */
+body.has-ad {
+  padding-bottom: calc(64px + env(safe-area-inset-bottom));
+}
+
 /* ---------- 상단 ---------- */
 .topbar {
   padding: calc(env(safe-area-inset-top) + 18px) var(--pad) 12px;
@@ -233,6 +240,8 @@ code {
 
 .foot { padding: 8px var(--pad) 28px; max-width: 720px; margin: 0 auto; }
 .foot p { font-size: 11.5px; color: var(--muted); text-align: center; margin: 0; }
+.foot a { color: var(--muted); text-decoration: underline; }
+.foot p + p { margin-top: 6px; }
 
 .empty { color: var(--muted); font-size: 13.5px; text-align: center; padding: 26px 0; }
 
@@ -431,6 +440,20 @@ code {
         <li>주의: 브라우저 저장소는 암호화되지 않습니다. 공용 PC에서는 쓰고 나서 삭제하세요.</li>
       </ul>
     </div>
+  </div>
+
+  <!-- 네이티브 앱에서 인앱 결제를 쓸 수 있을 때만 monetize.js 가 hidden 을 벗긴다.
+       웹과 단일 파일에서는 끝까지 숨어 있다. -->
+  <div class="card" id="adFreeCard" hidden>
+    <h2>광고 제거</h2>
+    <p class="muted">
+      한 번 구매하면 이 기기에서 광고가 사라집니다. 분석·생성 기능은 무료 버전과 완전히 같습니다.
+    </p>
+    <div class="btn-row">
+      <button id="buyAdFree" class="btn btn-primary">광고 제거 구매</button>
+      <button id="restorePurchase" class="btn btn-ghost">구매 복원</button>
+    </div>
+    <p id="adFreeStatus" class="status" aria-live="polite"></p>
   </div>
 
   <div class="card">
@@ -800,6 +823,7 @@ const CONST = { MIN_N, MAX_N, PICK };
 const KEY_SETTINGS = 'lotto.settings.v1';
 const KEY_APIKEY = 'lotto.apikey.v1';
 const KEY_DRAWS = 'lotto.draws.v1';
+const KEY_ADFREE = 'lotto.adfree.v1';
 
 const DEFAULT_SETTINGS = {
   games: 5,
@@ -883,6 +907,36 @@ function clearCachedDraws() {
   const s = ls();
   if (!s) return false;
   try { s.removeItem(KEY_DRAWS); return true; } catch { return false; }
+}
+
+/* ---------------------------------------------------------------- 광고 제거 구매
+ *
+ * 이 값은 **캐시일 뿐 권한의 근거가 아니다.**
+ * localStorage는 사용자가 개발자도구로 얼마든지 고칠 수 있으므로
+ * 진실의 근원은 언제나 Google Play 의 구매 기록이다.
+ *
+ * 그래도 캐시를 두는 이유는 두 가지다.
+ *  1. 앱을 켜자마자 배너를 띄웠다가 Play 조회 후 지우면 화면이 깜빡인다.
+ *     캐시가 참이면 처음부터 띄우지 않는다.
+ *  2. 비행기 모드에서는 Play 조회가 실패한다. 돈을 낸 사용자에게
+ *     오프라인이라는 이유로 광고를 보여주는 것은 부당하다.
+ *
+ * 반대 방향(캐시가 거짓인데 실제로는 구매함)은 앱 시작 시 restorePurchases()가 바로잡는다.
+ */
+function loadAdFree() {
+  const s = ls();
+  if (!s) return false;
+  try { return s.getItem(KEY_ADFREE) === '1'; } catch { return false; }
+}
+
+function saveAdFree(on) {
+  const s = ls();
+  if (!s) return false;
+  try {
+    if (on) s.setItem(KEY_ADFREE, '1');
+    else s.removeItem(KEY_ADFREE);
+    return true;
+  } catch { return false; }
 }
 
 
@@ -1028,6 +1082,12 @@ let stats = null;    // buildStats 결과
 let scoring = null;  // scoreNumbers 결과
 let settings = loadSettings();
 let lastGames = [];  // 마지막 생성 결과. 표시 옵션만 바뀔 때 다시 뽑지 않고 재렌더링한다.
+let ads = null;      // 네이티브 앱에서만 채워진다. 웹에서는 계속 null (monetize.js 참고).
+
+/** 네이티브 안드로이드 앱 안에서 돌고 있는가. 웹과 단일 파일에서는 항상 false. */
+function isNative() {
+  return Boolean(window.Capacitor?.isNativePlatform?.());
+}
 
 /* ---------------------------------------------------------------- 유틸 */
 
@@ -1472,6 +1532,7 @@ function wireGenerate() {
       useFilters: settings.useFilters,
     });
     renderGames(games);
+    ads?.onGenerated();   // 네이티브에서만. 광고가 실패해도 결과는 이미 그려져 있다.
   };
 }
 
@@ -1504,8 +1565,23 @@ async function main() {
   renderAnalysis();
   clearResults(false);   // 시작 시에는 저장된 시드를 지우지 않는다
 
-  if ('serviceWorker' in navigator) {
+  // 서비스 워커는 웹 배포에서만 의미가 있다. 네이티브에서는 Capacitor 가
+  // 자산을 기기 안에서 직접 서빙하므로 캐시 계층이 중복이고, network-first
+  // 정책이 데이터 갱신과 엇갈릴 소지만 남는다.
+  if (!isNative() && 'serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(() => { /* 오프라인 캐시는 없어도 앱은 동작한다 */ });
+  }
+
+  // 광고 모듈은 네이티브에서만 불러온다. 웹과 단일 파일은 이 분기에 들어오지 않으므로
+  // AdMob 플러그인이 없어도, 정적 import 가 없어도 정상 동작한다.
+  if (isNative()) {
+    try {
+      ads = await import('./monetize.js');
+      await ads.startAds();
+    } catch (e) {
+      console.warn('[ads] 광고 모듈을 불러오지 못했습니다. 광고 없이 계속합니다:', e?.message || e);
+      ads = null;
+    }
   }
 }
 

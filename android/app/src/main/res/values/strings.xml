@@ -1,0 +1,11 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">로또 번호 분석기</string>
+    <string name="title_activity_main">로또 번호 분석기</string>
+    <string name="package_name">com.kcseo.lottoanalyzer</string>
+    <string name="custom_url_scheme">com.kcseo.lottoanalyzer</string>
+    <!-- AdMob 앱 ID. 지금 값은 구글 공식 **테스트** 앱 ID 다.
+         프로덕션 출시 직전에 AdMob 콘솔에서 발급받은 실제 앱 ID 로 바꾼다.
+         js/monetize.js 의 LIVE_AD_UNITS 도 같이 채워야 한다. -->
+    <string name="admob_app_id">ca-app-pub-3940256099942544~3347511713</string>
+</resources>

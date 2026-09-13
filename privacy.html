@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d1117">
+<meta name="description" content="로또 번호 분석기 개인정보처리방침">
+<title>개인정보처리방침 — 로또 번호 분석기</title>
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="css/app.css">
+<style>
+  /* 이 문서 전용 — 앱 화면이 아니라 읽는 문서라서 본문 폭과 여백만 손본다 */
+  .doc h2 { font-size: 16px; margin: 26px 0 8px; }
+  .doc h2:first-child { margin-top: 0; }
+  .doc ul { padding-left: 20px; margin: 8px 0; }
+  .doc li { margin: 4px 0; }
+  .doc table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 14px; }
+  .doc th, .doc td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .doc th { color: var(--muted); font-weight: 600; }
+  .doc code { background: var(--surface-2); padding: 1px 5px; border-radius: 5px; font-size: 13px; }
+  .doc a { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <h1>개인정보처리방침</h1>
+  <p class="status">로또 번호 분석기 · 시행일 2026년 9월 13일</p>
+</header>
+
+<main>
+<div class="card doc">
+
+<p>본 방침은 안드로이드 앱과 웹 버전 <strong>‘로또 번호 분석기’</strong>(이하 ‘앱’)에 모두 적용됩니다.
+앱은 개인 개발자가 만든 통계 분석 도구이며, <strong>별도의 회원 가입이나 계정이 없습니다.</strong></p>
+
+<h2>1. 개발자가 직접 수집하는 정보 — 없음</h2>
+<p>개발자는 자체 서버를 운영하지 않습니다. 따라서 다음 정보를 <strong>수집하지도, 전송받지도, 보관하지도 않습니다.</strong></p>
+<ul>
+  <li>이름·이메일·전화번호 등 신원 정보</li>
+  <li>위치 정보, 연락처, 사진, 파일, 통화 기록</li>
+  <li>사용자가 생성한 번호 조합과 설정값</li>
+</ul>
+<p>사용자가 앱에서 만든 번호, 시드, 가중치 설정, 회차 데이터는 <strong>기기 안의 브라우저 저장소
+(<code>localStorage</code>)에만</strong> 저장되며 기기를 떠나지 않습니다.</p>
+
+<h2>2. 광고를 위해 제3자가 수집하는 정보</h2>
+<p>앱은 무료로 제공되며 <strong>Google AdMob</strong> 광고로 운영됩니다.
+AdMob은 광고를 게재하고 성과를 측정하기 위해 다음을 수집할 수 있습니다.</p>
+<table>
+  <tr><th>항목</th><th>목적</th></tr>
+  <tr><td>광고 ID (AAID)</td><td>광고 게재·빈도 제한·성과 측정</td></tr>
+  <tr><td>기기 및 앱 정보<br><small>모델, OS 버전, 언어, 앱 버전</small></td><td>광고 형식 최적화, 오류 진단</td></tr>
+  <tr><td>대략적 위치<br><small>IP 주소 기반 국가·지역 수준</small></td><td>지역에 맞는 광고 게재</td></tr>
+  <tr><td>광고 상호작용<br><small>노출·클릭 기록</small></td><td>수익 정산, 부정 클릭 방지</td></tr>
+</table>
+<p>이 정보는 <strong>Google이 직접 수집하고 처리</strong>하며 개발자는 개별 사용자를 식별할 수 있는
+형태로 열람하지 않습니다. 개발자가 보는 것은 합계 통계(노출 수, 예상 수익 등)뿐입니다.</p>
+<p>자세한 내용은 <a href="https://policies.google.com/technologies/partner-sites" target="_blank" rel="noopener">
+Google이 파트너 사이트·앱에서 정보를 사용하는 방식</a>을 참고하세요.</p>
+
+<h2>3. 결제 정보</h2>
+<p>앱 안에서 ‘광고 제거’를 구매하는 경우, 결제는 전적으로 <strong>Google Play</strong>가 처리합니다.
+카드 번호를 비롯한 어떤 결제 수단 정보도 <strong>앱과 개발자에게 전달되지 않습니다.</strong>
+앱은 ‘구매했는지 여부’만 확인해 광고 표시를 끕니다.</p>
+
+<h2>4. 회차 데이터 갱신 시의 통신</h2>
+<p>앱에는 과거 당첨 회차 데이터가 동봉되어 있어 <strong>인터넷 없이도 모든 기능이 동작</strong>합니다.
+사용자가 설정에서 <em>‘최신 회차 가져오기’</em>를 직접 누른 경우에만 공개 데이터 엔드포인트에 접속하며,
+이때 전송되는 것은 <strong>요청한 회차 번호뿐</strong>입니다. 개인정보는 포함되지 않습니다.</p>
+
+<h2>5. API 키 취급</h2>
+<p>키가 필요한 엔드포인트를 쓰는 사용자를 위해 설정에 API 키 입력란이 있습니다. 앱은 다음을 지킵니다.</p>
+<ul>
+  <li>키는 <strong>이 기기의 저장소에만</strong> 보관하며 개발자 서버로 전송하지 않습니다.</li>
+  <li>전송이 필요할 때는 URL이 아닌 <strong>HTTP 헤더</strong>로만 보냅니다.
+      (URL에 넣으면 브라우저 기록·중계 서버 로그·<code>Referer</code> 헤더에 평문으로 남습니다.)</li>
+  <li>키를 콘솔에 출력하지 않고, 번호 복사·내보내기에도 포함하지 않습니다.</li>
+  <li>화면에는 항상 마스킹해 표시합니다.</li>
+</ul>
+
+<h2>6. 아동 개인정보</h2>
+<p>앱은 만 14세 미만 아동을 대상으로 하지 않으며, 아동의 개인정보를 고의로 수집하지 않습니다.</p>
+
+<h2>7. 사용자의 선택권</h2>
+<ul>
+  <li><strong>맞춤 광고 끄기</strong> — 안드로이드 <em>설정 → Google → 광고</em>에서
+      ‘광고 ID 삭제’ 또는 ‘맞춤 광고 선택 해제’를 설정할 수 있습니다.</li>
+  <li><strong>광고 완전 제거</strong> — 앱 내 ‘광고 제거’를 구매하면 광고 SDK를 호출하지 않습니다.</li>
+  <li><strong>저장된 데이터 삭제</strong> — 앱을 삭제하거나, 안드로이드
+      <em>설정 → 앱 → 저장공간 → 데이터 삭제</em>를 누르면 기기에 저장된 모든 값이 지워집니다.
+      웹 버전은 브라우저의 사이트 데이터 삭제로 같은 효과를 냅니다.</li>
+</ul>
+
+<h2>8. 보안</h2>
+<p>앱은 서버로 개인정보를 보내지 않으므로 전송 중 유출 위험이 구조적으로 없습니다.
+다만 <strong>기기의 브라우저 저장소는 암호화되지 않습니다.</strong>
+공용 기기에서 사용했다면 사용 후 데이터를 삭제하시기 바랍니다.</p>
+
+<h2>9. 방침 변경</h2>
+<p>내용이 바뀌면 이 페이지를 갱신하고 상단의 시행일을 수정합니다.
+중요한 변경은 앱 업데이트 설명에도 함께 안내합니다.</p>
+
+<h2>10. 문의</h2>
+<p>개인정보 처리에 관한 문의: <a href="mailto:kcseogi@gmail.com">kcseogi@gmail.com</a></p>
+
+<h2>면책</h2>
+<p>본 앱은 <strong>통계 분석·학습용 도구</strong>이며 당첨을 보장하지 않습니다.
+앱은 복권 구매를 중개하거나 대행하지 않으며, 어떠한 형태의 도박·베팅 기능도 제공하지 않습니다.
+로또는 매 회차 독립 시행이고, 1등 확률은 어떤 번호를 고르든 8,145,060분의 1로 동일합니다.</p>
+
+</div>
+</main>
+
+<footer class="foot">
+  <p><a href="index.html" style="color:var(--accent)">앱으로 돌아가기</a></p>
+</footer>
+
+</body>
+</html>

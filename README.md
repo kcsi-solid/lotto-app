@@ -329,10 +329,13 @@ npm run test:dist    # 산출물 검증 39개
 
 | 산출물 | 크기 | 쓰임 |
 |---|---|---|
-| `dist/web/` | 116KB | 웹 호스팅용. 폴더 내용을 그대로 업로드 |
-| `dist/lotto-app-web.zip` | 42KB | 위 폴더의 압축본. Netlify 등에 드래그앤드롭 |
-| `dist/lotto-standalone.html` | 108KB | **서버 없이 열리는 단일 파일** |
-| `dist/android/` | — | APK 만드는 방법 |
+| `dist/web/` | 133KB | 웹 호스팅용. 폴더 내용을 그대로 업로드. **Capacitor 의 `webDir` 이기도 하다** |
+| `dist/lotto-app-web.zip` | 51KB | 위 폴더의 압축본. Netlify 등에 드래그앤드롭 |
+| `dist/lotto-standalone.html` | 111KB | **서버 없이 열리는 단일 파일** |
+| `dist/android/` | — | Capacitor 안드로이드 빌드 안내 |
+
+> zip 은 외부 라이브러리 없이 `node:zlib` 의 `deflateRaw` 로 직접 만듭니다.
+> zip 의 압축 방식(method 8)이 곧 deflate 라서, 실제로 필요한 것은 헤더 몇 줄과 CRC32 뿐입니다.
 
 ### 단일 파일 `lotto-standalone.html`
 
@@ -365,18 +368,103 @@ npm run test:dist    # 산출물 검증 39개
 
 | 방법 | 호스팅 필요 | 오프라인 | 비고 |
 |---|---|---|---|
-| **PWA 설치** | 필요 (HTTPS) | O | 가장 앱에 가까움. 권장 |
+| **안드로이드 앱 (Capacitor)** | 불필요 | O | 구글 플레이 배포용. 광고가 여기 붙는다 |
+| **PWA 설치** | 필요 (HTTPS) | O | 설치 없이 가장 간편 |
 | **단일 파일** | 불필요 | O | 파일만 복사하면 끝 |
-| **APK** | 필요 (HTTPS) | O | 이 PC에서는 빌드 불가 — 아래 참고 |
 
-**APK 는 이 PC에서 만들지 못했습니다.** JDK 와 Android SDK 가 설치돼 있지 않습니다
-(`java`, `gradle`, `ANDROID_HOME` 모두 확인). 그리고 APK 는 어차피 **배포된 HTTPS 주소가 있어야**
-만들 수 있습니다(TWA 방식). 배포한 뒤 <https://www.pwabuilder.com> 에 주소를 넣으면
-설치 없이 서명된 APK 를 받을 수 있습니다. 자세한 절차와 Bubblewrap 로컬 빌드 방법,
-참고용 `twa-manifest.json` 을 `dist/android/` 에 넣어 뒀습니다.
-
-iOS 는 APK 개념이 없고 앱스토어 배포에 Mac + Xcode + 개발자 계정(연 $99)이 필요합니다.
+iOS 는 Mac + Xcode + 개발자 계정(연 $99)이 필요합니다.
 **사파리의 `홈 화면에 추가`** 가 사실상 유일하고 충분한 방법입니다.
+
+### 안드로이드 앱 빌드 (Capacitor)
+
+구글 플레이에는 **Capacitor 로 감싼 네이티브 앱**으로 올립니다.
+
+> **왜 TWA 가 아닌가** — TWA(배포한 웹주소를 감싸는 방식)는 더 간단하지만
+> **그 안에서는 AdMob 광고를 띄울 수 없습니다.** Chrome 이 화면 전체를 그려 네이티브
+> `AdView` 를 겹칠 수 없고, PWA 안에 AdSense 를 넣는 것은 '앱 내 AdSense 금지' 위반입니다.
+> 수익화가 목적이면 선택지는 Capacitor 하나뿐입니다.
+
+**사전 준비 (한 번만)**
+
+```powershell
+winget install --id EclipseAdoptium.Temurin.21.JDK   # Gradle 이 Java 21 을 요구한다
+winget install --id Google.AndroidStudio             # Android SDK + 에뮬레이터
+```
+
+**빌드**
+
+```bash
+npm run android          # 빌드 → 동기화 → 에뮬레이터/실기기 실행
+npm run android:sync     # 빌드 → 동기화만
+npm run android:bundle   # Play 제출용 .aab 생성
+```
+
+`npm run android:sync` 가 하는 일은 `npm run build && npx cap sync android` 입니다.
+**`npm run build` 를 먼저 돌리지 않으면 `cap sync` 가 예전 `dist/web` 을 그대로 복사합니다.**
+화면이 안 바뀌면 거의 항상 이것이 원인이라, 스크립트로 순서를 묶어 뒀습니다.
+
+### 수익화 — AdMob
+
+광고 코드는 `js/monetize.js` 한 파일에 모여 있고, **네이티브에서만** 불립니다.
+
+```js
+// app.js main() 끝 — 웹과 단일 파일은 이 분기에 들어오지 않는다
+if (isNative()) {
+  ads = await import('./monetize.js');
+  await ads.startAds();
+}
+```
+
+설계상 지키는 것 네 가지:
+
+| 제약 | 방법 |
+|---|---|
+| 웹·단일 파일을 깨뜨리지 않는다 | 정적 import 를 쓰지 않고 네이티브일 때만 동적 import |
+| 번들러를 들이지 않는다 | 플러그인 JS 대신 `Capacitor.nativePromise('AdMob', …)` 브릿지 직접 호출 |
+| 오프라인에서 앱이 멀쩡하다 | 모든 광고 호출의 실패를 삼키고 위로 던지지 않음 |
+| 광고가 콘텐츠를 가리지 않는다 | 배너가 실제로 떴을 때만 `body.has-ad` 로 하단 여백 확보 |
+
+> **번들러 없이 플러그인을 쓰는 법** — 이 프로젝트는 빌드 도구가 없어서
+> `import { AdMob } from '@capacitor-community/admob'` 같은 bare specifier 를
+> 브라우저가 해석하지 못합니다. 그런데 `@capacitor/core` 의 `registerPlugin` 이 만드는
+> 프록시는 결국 `Capacitor.nativePromise(플러그인명, 메서드명, 옵션)` 한 줄을 부르는 게 전부입니다.
+> 그래서 그 한 줄을 직접 부릅니다. npm 패키지는 여전히 필요합니다 —
+> `npx cap sync` 가 그걸 보고 **안드로이드 네이티브 라이브러리**를 넣기 때문입니다. JS 쪽만 건너뜁니다.
+
+### 서명 — Play 업로드에 필수
+
+`keystore.properties` 가 없으면 릴리스 빌드가 **서명 없이** 나옵니다(로컬 확인용으로는 충분).
+Play 에 올리려면 업로드 키를 만들어야 합니다.
+
+```bash
+cd android
+keytool -genkeypair -v -keystore upload-keystore.jks -alias upload \
+        -keyalg RSA -keysize 2048 -validity 10000
+```
+
+그리고 `android/keystore.properties` 를 만듭니다 (`.gitignore` 로 이미 막혀 있습니다):
+
+```properties
+storeFile=upload-keystore.jks
+storePassword=<위에서 정한 비밀번호>
+keyAlias=upload
+keyPassword=<위에서 정한 비밀번호>
+```
+
+> **이 파일과 비밀번호를 잃으면 앱 업데이트가 영구 불가합니다.**
+> 저장소에는 절대 올라가지 않으므로, 만드는 즉시 별도의 안전한 곳에 백업하세요.
+> Play 앱 서명(Play App Signing)을 켜면 배포 키는 구글이 보관하지만,
+> **업로드 키는 여전히 본인 책임**입니다.
+
+**출시 전 반드시 할 일**
+
+1. `js/monetize.js` 의 `LIVE_AD_UNITS` 를 실제 광고 단위 ID 로 채우기 (비어 있으면 테스트 광고 → 수익 0)
+2. `android/app/src/main/res/values/strings.xml` 의 `admob_app_id` 를 실제 앱 ID 로 교체
+3. 업로드 키스토어 **백업** (잃으면 앱 업데이트가 영구 불가)
+
+> **개발 중에는 절대 실제 광고 단위를 쓰지 마세요.** 자기 앱의 실 광고를 띄우거나
+> 클릭하면 AdMob 계정이 영구 정지됩니다. 기본값은 구글 공식 테스트 ID 이고,
+> `initializeForTesting` 으로 기기까지 테스트 기기로 등록합니다.
 
 ### 핸드폰에 설치 (PWA)
 
@@ -470,11 +558,15 @@ Register-ScheduledTask -TaskName "로또 데이터 갱신" -Action $action -Trig
 ```
 lotto-app/
 ├── index.html                  화면 구조
+├── privacy.html                개인정보처리방침 (구글 플레이 필수)
+├── capacitor.config.json       안드로이드 앱 설정 (webDir = dist/web)
+├── android/                    Capacitor 가 만든 네이티브 프로젝트
 ├── css/app.css                 모바일 우선 스타일 (다크/라이트 자동)
 ├── js/
 │   ├── engine.js               ★ 분석·생성 엔진 (순수 함수, DOM 의존 없음)
 │   ├── source.js               데이터 획득 / 증분 갱신 / 가져오기
-│   ├── store.js                설정·API 키 로컬 보관
+│   ├── store.js                설정·API 키·광고제거 상태 로컬 보관
+│   ├── monetize.js             AdMob 광고 (네이티브 앱에서만 로드됨)
 │   └── app.js                  화면 구성과 이벤트 배선
 ├── data/draws.json             1~1241회 당첨 데이터 (48KB)
 ├── tools/

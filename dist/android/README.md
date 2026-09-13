@@ -1,47 +1,45 @@
-# 안드로이드 APK 만들기
+# 안드로이드 앱 빌드 (Capacitor)
 
-이 PC에는 **JDK와 Android SDK가 없어서 APK를 직접 빌드하지 못했습니다.**
-(`java`, `gradle`, `ANDROID_HOME` 모두 확인했으나 없음)
+이 앱은 **Capacitor 로 감싼 네이티브 안드로이드 앱**으로 구글 플레이에 올립니다.
+TWA(웹주소 래핑)를 쓰지 않는 이유는 하나입니다 — **TWA 안에서는 AdMob 광고를 띄울 수 없습니다.**
+Chrome 이 화면 전체를 그려 네이티브 AdView 를 겹칠 수 없고, PWA 안에 AdSense 를 넣는 것은
+'앱 내 AdSense 금지' 정책 위반입니다.
 
-APK는 웹에 올린 주소가 있어야 만들 수 있습니다. 먼저 배포부터 하세요.
+Capacitor 프로젝트는 저장소 루트의 `android/` 에 있습니다. 이 폴더는 참고 문서만 담습니다.
 
 ---
 
-## 방법 1 — PWABuilder (설치 불필요, 가장 쉬움)
+## 사전 준비 (한 번만)
 
-1. 사이트를 먼저 배포합니다 (`dist/web/` 을 GitHub Pages / Netlify / Vercel 에 업로드).
-2. <https://www.pwabuilder.com> 에 접속해 배포한 주소를 입력합니다.
-3. **Package For Stores → Android** 를 고릅니다.
-4. `Download` 를 누르면 서명된 APK 와 AAB 가 담긴 zip 을 받습니다.
-   - 테스트 설치용은 `app-release-signed.apk`
-   - 구글 플레이 제출용은 `.aab`
-
-받은 zip 안의 `assetlinks.json` 을 사이트의 `/.well-known/assetlinks.json` 경로에
-올려야 주소창 없이 전체화면으로 뜹니다. 올리지 않으면 상단에 주소 막대가 남습니다.
-
-## 방법 2 — Bubblewrap (로컬 빌드)
-
-JDK 17 과 Android SDK 를 설치한 뒤:
-
-```bash
-npm install -g @bubblewrap/cli
-bubblewrap init --manifest <배포주소>/manifest.webmanifest
-bubblewrap build
+```powershell
+winget install --id EclipseAdoptium.Temurin.21.JDK
+winget install --id Google.AndroidStudio
 ```
 
-같은 폴더의 `twa-manifest.json` 을 참고용으로 넣어 뒀습니다.
-`host`, `iconUrl`, `packageId` 를 실제 배포 주소와 원하는 패키지명으로 바꾸세요.
+## 빌드
 
-## 방법 3 — APK 없이 쓰기 (권장)
+```bash
+npm run build          # dist/web/ 생성 — Capacitor 의 webDir 이다
+npx cap sync android   # 웹 자산 + 네이티브 플러그인 동기화
+npx cap run android    # 에뮬레이터/실기기에서 실행
 
-사실 APK가 꼭 필요하지 않습니다.
+cd android && ./gradlew bundleRelease
+# -> android/app/build/outputs/bundle/release/app-release.aab  (Play 제출용)
+```
 
-- **PWA 설치**: 배포 주소를 핸드폰 브라우저로 열고 `홈 화면에 추가`.
-  아이콘으로 실행되고 주소창 없이 전체화면으로 뜨며, 오프라인에서도 동작합니다.
-- **단일 파일**: `dist/lotto-standalone.html` 을 핸드폰에 복사해 브라우저로 엽니다.
-  서버도 인터넷도 필요 없습니다.
+> `npm run build` 를 먼저 돌리지 않으면 `cap sync` 가 **예전 dist/web 을 그대로 복사합니다.**
+> 화면이 안 바뀌면 거의 항상 이것이 원인입니다.
+
+## 출시 전 점검
+
+1. `js/monetize.js` 의 `LIVE_AD_UNITS` 를 실제 AdMob 광고 단위 ID 로 채웠는가
+   (비어 있으면 테스트 광고가 나갑니다 — 수익 0)
+2. `android/app/src/main/res/values/strings.xml` 의 `admob_app_id` 가 실제 앱 ID 인가
+3. 업로드 키스토어를 **백업**했는가 (잃으면 앱 업데이트가 영구 불가)
+4. 개인정보처리방침 URL 이 살아 있고, Play 데이터 안전 양식과 내용이 일치하는가
 
 ## 아이폰
 
-iOS 는 APK 개념이 없고, 앱스토어 배포에는 Mac + Xcode + 개발자 계정(연 $99)이 필요합니다.
-**사파리에서 `공유 → 홈 화면에 추가`** 가 사실상 유일하고 충분한 방법입니다.
+iOS 는 Mac + Xcode + 개발자 계정(연 $99)이 필요합니다.
+**사파리에서 `공유 → 홈 화면에 추가`** 로 PWA 를 설치하는 것이 현실적인 대안입니다.
+배포 주소: https://<아이디>.github.io/lotto-app/

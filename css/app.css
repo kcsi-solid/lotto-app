@@ -30,6 +30,13 @@ body {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
+/* 네이티브 앱에서 하단 배너 광고가 실제로 떴을 때만 monetize.js 가 붙인다.
+   광고가 조작 요소나 콘텐츠를 가리면 AdMob 정책 위반이므로 그만큼 여백을 확보한다.
+   적응형 배너는 기기에 따라 50~60dp 사이라 넉넉히 잡았다. */
+body.has-ad {
+  padding-bottom: calc(64px + env(safe-area-inset-bottom));
+}
+
 /* ---------- 상단 ---------- */
 .topbar {
   padding: calc(env(safe-area-inset-top) + 18px) var(--pad) 12px;
@@ -219,6 +226,8 @@ code {
 
 .foot { padding: 8px var(--pad) 28px; max-width: 720px; margin: 0 auto; }
 .foot p { font-size: 11.5px; color: var(--muted); text-align: center; margin: 0; }
+.foot a { color: var(--muted); text-decoration: underline; }
+.foot p + p { margin-top: 6px; }
 
 .empty { color: var(--muted); font-size: 13.5px; text-align: center; padding: 26px 0; }
 

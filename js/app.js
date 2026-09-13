@@ -19,6 +19,12 @@ let stats = null;    // buildStats 결과
 let scoring = null;  // scoreNumbers 결과
 let settings = loadSettings();
 let lastGames = [];  // 마지막 생성 결과. 표시 옵션만 바뀔 때 다시 뽑지 않고 재렌더링한다.
+let ads = null;      // 네이티브 앱에서만 채워진다. 웹에서는 계속 null (monetize.js 참고).
+
+/** 네이티브 안드로이드 앱 안에서 돌고 있는가. 웹과 단일 파일에서는 항상 false. */
+function isNative() {
+  return Boolean(window.Capacitor?.isNativePlatform?.());
+}
 
 /* ---------------------------------------------------------------- 유틸 */
 
@@ -463,6 +469,7 @@ function wireGenerate() {
       useFilters: settings.useFilters,
     });
     renderGames(games);
+    ads?.onGenerated();   // 네이티브에서만. 광고가 실패해도 결과는 이미 그려져 있다.
   };
 }
 
@@ -495,8 +502,23 @@ async function main() {
   renderAnalysis();
   clearResults(false);   // 시작 시에는 저장된 시드를 지우지 않는다
 
-  if ('serviceWorker' in navigator) {
+  // 서비스 워커는 웹 배포에서만 의미가 있다. 네이티브에서는 Capacitor 가
+  // 자산을 기기 안에서 직접 서빙하므로 캐시 계층이 중복이고, network-first
+  // 정책이 데이터 갱신과 엇갈릴 소지만 남는다.
+  if (!isNative() && 'serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(() => { /* 오프라인 캐시는 없어도 앱은 동작한다 */ });
+  }
+
+  // 광고 모듈은 네이티브에서만 불러온다. 웹과 단일 파일은 이 분기에 들어오지 않으므로
+  // AdMob 플러그인이 없어도, 정적 import 가 없어도 정상 동작한다.
+  if (isNative()) {
+    try {
+      ads = await import('./monetize.js');
+      await ads.startAds();
+    } catch (e) {
+      console.warn('[ads] 광고 모듈을 불러오지 못했습니다. 광고 없이 계속합니다:', e?.message || e);
+      ads = null;
+    }
   }
 }
 

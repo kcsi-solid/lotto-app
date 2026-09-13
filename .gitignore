@@ -1,6 +1,9 @@
-# 의존성 — 테스트용 jsdom만 쓰므로 저장소에 넣지 않는다
+# 의존성
 node_modules/
-package-lock.json
+# package-lock.json 은 이제 커밋한다.
+# 전에는 테스트용 jsdom 하나뿐이라 뺐지만, 지금은 Capacitor 와 AdMob 이
+# 안드로이드 네이티브 라이브러리 버전까지 결정하므로 잠그지 않으면
+# 빌드마다 다른 앱이 나올 수 있다.
 
 # Python
 __pycache__/
@@ -16,3 +19,10 @@ desktop.ini
 # 임시 파일
 *.log
 *.tmp
+
+# 안드로이드 서명 키 — 절대 저장소에 올리지 않는다.
+# 업로드 키스토어를 잃으면 앱 업데이트가 영구 불가하므로 별도 안전한 곳에 백업할 것.
+*.keystore
+*.jks
+keystore.properties
+android/local.properties

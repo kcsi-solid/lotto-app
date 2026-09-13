@@ -11,6 +11,7 @@
 const KEY_SETTINGS = 'lotto.settings.v1';
 const KEY_APIKEY = 'lotto.apikey.v1';
 const KEY_DRAWS = 'lotto.draws.v1';
+const KEY_ADFREE = 'lotto.adfree.v1';
 
 export const DEFAULT_SETTINGS = {
   games: 5,
@@ -94,4 +95,34 @@ export function clearCachedDraws() {
   const s = ls();
   if (!s) return false;
   try { s.removeItem(KEY_DRAWS); return true; } catch { return false; }
+}
+
+/* ---------------------------------------------------------------- 광고 제거 구매
+ *
+ * 이 값은 **캐시일 뿐 권한의 근거가 아니다.**
+ * localStorage는 사용자가 개발자도구로 얼마든지 고칠 수 있으므로
+ * 진실의 근원은 언제나 Google Play 의 구매 기록이다.
+ *
+ * 그래도 캐시를 두는 이유는 두 가지다.
+ *  1. 앱을 켜자마자 배너를 띄웠다가 Play 조회 후 지우면 화면이 깜빡인다.
+ *     캐시가 참이면 처음부터 띄우지 않는다.
+ *  2. 비행기 모드에서는 Play 조회가 실패한다. 돈을 낸 사용자에게
+ *     오프라인이라는 이유로 광고를 보여주는 것은 부당하다.
+ *
+ * 반대 방향(캐시가 거짓인데 실제로는 구매함)은 앱 시작 시 restorePurchases()가 바로잡는다.
+ */
+export function loadAdFree() {
+  const s = ls();
+  if (!s) return false;
+  try { return s.getItem(KEY_ADFREE) === '1'; } catch { return false; }
+}
+
+export function saveAdFree(on) {
+  const s = ls();
+  if (!s) return false;
+  try {
+    if (on) s.setItem(KEY_ADFREE, '1');
+    else s.removeItem(KEY_ADFREE);
+    return true;
+  } catch { return false; }
 }

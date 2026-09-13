@@ -20,10 +20,14 @@ const check = (name, cond, extra = '') => {
 
 console.log('[1] 산출물 존재');
 const expected = [
-  'web/index.html', 'web/css/app.css', 'web/js/app.js', 'web/js/engine.js',
-  'web/js/store.js', 'web/js/source.js', 'web/data/draws.json',
+  'web/index.html', 'web/privacy.html', 'web/css/app.css',
+  'web/js/app.js', 'web/js/engine.js', 'web/js/store.js', 'web/js/source.js',
+  // Capacitor 의 webDir 이 dist/web 이라 네이티브 앱이 여기서 monetize.js 를 동적 import 한다.
+  // 빠지면 실기기에서 404 가 나므로 산출물 검사로 지킨다.
+  'web/js/monetize.js',
+  'web/data/draws.json',
   'web/manifest.webmanifest', 'web/sw.js', 'web/icons/icon.svg',
-  'lotto-standalone.html', 'android/twa-manifest.json', 'android/README.md', 'BUILD.txt',
+  'lotto-standalone.html', 'android/README.md', 'BUILD.txt',
 ];
 for (const f of expected) {
   check(f, fs.existsSync(path.join(DIST, f)));
