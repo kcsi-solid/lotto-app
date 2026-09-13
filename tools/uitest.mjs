@@ -112,7 +112,8 @@ check('근거가 3단계를 모두 설명', basis && basis.querySelectorAll('li'
 check('근거에 현재 가중치가 반영됨',
   (basis?.textContent || '').includes('빈도×0.30') && (basis?.textContent || '').includes('마르코프×0.30'),
   (basis?.textContent || '').slice(0, 60));
-check('근거에 균등 기준선 13.3% 명시', (basis?.textContent || '').includes('13.3%'));
+check('근거에 동일가정 기준선 13.3% 명시', (basis?.textContent || '').includes('13.3%'));
+check('근거에도 "균등" 용어 없음', !(basis?.textContent || '').includes('균등'));
 check('독립 가정 한계를 밝힘', (basis?.textContent || '').includes('독립'));
 check('실제 당첨 확률 1/8,145,060 명시',
   (basis?.textContent || '').includes('8,145,060'));
@@ -127,14 +128,17 @@ const combo = [...$('results').querySelectorAll('.combo-p')].map(e => e.textCont
 check('조합 확률이 % 로 끝남', combo.length === 5 && combo.every(t => t.endsWith('%')),
   combo.join(' '));
 check('조합 확률이 0보다 큼', combo.every(t => parseFloat(t) > 0), combo[0]);
-const ratios = [...$('results').querySelectorAll('.combo-x')].map(e => e.textContent);
-check('균등 대비 배수 표시', ratios.length === 5 && ratios.every(t => t.includes('균등 대비')),
-  ratios[0]);
+const labels = [...$('results').querySelectorAll('.combo-label')].map(e => e.textContent);
+check('확률 라벨이 평이한 말로 표시', labels.length === 5
+  && labels.every(t => t === '이 조합이 나올 확률'), labels[0]);
+check('"균등 대비" 표현이 화면에서 사라짐', !$('results').textContent.includes('균등 대비'));
+check('배수(N배) 표시 없음', !/\d배/.test($('results').textContent));
 
-// 곱셈이 실제로 맞는지: 생성된 조합의 확률이 균등 조합보다 커야 한다
-// (고득점 번호로 뽑았으므로). 배수가 1보다 크면 계산 방향이 맞다.
-const firstRatio = parseFloat((ratios[0] || '').replace(/[^0-9.]/g, ''));
-check('상위 조합의 배수가 1보다 큼', firstRatio > 1, ratios[0]);
+// 계산 방향 확인: 고득점 번호로 뽑았으므로 45개를 똑같이 볼 때의
+// (6/45)^6 = 0.00056% 보다 커야 한다.
+const evenPct = Math.pow(6 / 45, 6) * 100;
+check('상위 조합 확률이 동일가정 기준보다 큼', parseFloat(combo[0]) > evenPct,
+  combo[0] + ' vs ' + evenPct.toFixed(5) + '%');
 
 $('showProb').checked = false;
 $('showProb').dispatchEvent(new window.Event('change'));

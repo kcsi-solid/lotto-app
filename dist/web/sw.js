@@ -7,7 +7,7 @@
  *    데이터가 갱신되는 앱이라 cache-first면 오래된 회차에 갇힌다.
  *  - 외부 도메인(데이터 갱신 엔드포인트) 요청은 캐시하지 않고 그대로 통과시킨다.
  */
-const CACHE = 'lotto-v5';
+const CACHE = 'lotto-v6';
 const SHELL = [
   './',
   './index.html',
