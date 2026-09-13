@@ -6,8 +6,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  buildStats, scoreNumbers, generateGames, describeSet,
-  passesFilters, DEFAULT_FILTERS, softmaxWeights, CONST,
+  buildStats, scoreNumbers, generateGames, describeSet, scoreSetCohesion,
+  passesFilters, DEFAULT_FILTERS, softmaxWeights, makeRng, CONST,
 } from '../js/engine.js';
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
@@ -72,6 +72,63 @@ check('필터 통과 조합은 실제로 필터를 만족',
   strict.every(g => passesFilters(g.nums, DEFAULT_FILTERS, stats)));
 check('과거 1등 조합과 동일한 조합 없음',
   strict.every(g => !stats.seenSets.has(g.nums.join('-'))));
+
+console.log('\n[4-b] 조합 응집도 scoreSetCohesion');
+{
+  const sample = draws.slice(-30).map(r => r.slice(2, 8));
+  const vals = sample.map(s => scoreSetCohesion(s, stats));
+  check('모두 유한한 수', vals.every(Number.isFinite), String(vals.slice(0, 3)));
+  check('값이 상수가 아님 (동점 남발 안 함)', new Set(vals.map(v => v.toFixed(6))).size > 25,
+    new Set(vals.map(v => v.toFixed(6))).size + '/30 서로 다름');
+  check('정렬 순서와 무관', (() => {
+    const s = sample[0];
+    const shuffled = [...s].reverse();
+    return Math.abs(scoreSetCohesion(s, stats) - scoreSetCohesion(shuffled, stats)) < 1e-12;
+  })());
+  // lift 의 기준선. 비복원 추출 보정이 빠지면 여기가 0.85 로 눌린다.
+  // 범위를 좁게 잡아야 그 오류를 잡을 수 있다.
+  const rngT = makeRng(4242);
+  const randSet = () => {
+    const pool = Array.from({ length: 45 }, (_, i) => i + 1);
+    for (let k = 0; k < 6; k++) {
+      const j = k + Math.floor(rngT() * (pool.length - k));
+      [pool[k], pool[j]] = [pool[j], pool[k]];
+    }
+    return pool.slice(0, 6).sort((x, y) => x - y);
+  };
+  const meanLift = s => {
+    let sum = 0, c = 0;
+    for (let a = 0; a < 6; a++) for (let b = a + 1; b < 6; b++) { sum += stats.lift[s[a]][s[b]]; c++; }
+    return sum / c;
+  };
+  const rand2000 = Array.from({ length: 2000 }, randSet);
+  const baseline = rand2000.reduce((a, s) => a + meanLift(s), 0) / rand2000.length;
+  check('무작위 조합의 평균 lift = 1.0 (비복원 보정 확인)',
+    Math.abs(baseline - 1) < 0.02, baseline.toFixed(4));
+
+  // 쌍 연관성이 높은 조합이 실제로 더 높은 점수를 받는가
+  const high = [], low = [];
+  for (const s of rand2000) {
+    (meanLift(s) > 1 ? high : low).push(scoreSetCohesion(s, stats));
+  }
+  const avg = a => a.reduce((x, y) => x + y, 0) / (a.length || 1);
+  check('양쪽 표본이 모두 존재', high.length > 100 && low.length > 100,
+    high.length + ' vs ' + low.length);
+  check('lift 높은 조합이 더 높은 점수', avg(high) > avg(low),
+    avg(high).toFixed(3) + ' vs ' + avg(low).toFixed(3));
+
+  // 구간 분산 보정이 주 신호를 뒤집지 않는지
+  check('구간 보정은 0.03 이하로만 기여', (() => {
+    let maxGap = 0;
+    for (const s of sample) {
+      const d = describeSet(s);
+      let sum = 0, c = 0;
+      for (let a = 0; a < 6; a++) for (let b = a + 1; b < 6; b++) { sum += stats.lift[d.sorted[a]][d.sorted[b]]; c++; }
+      maxGap = Math.max(maxGap, Math.abs(scoreSetCohesion(s, stats) - sum / c));
+    }
+    return maxGap <= 0.03 + 1e-9;
+  })());
+}
 
 console.log('\n[5] 재현성');
 const a = generateGames(stats, scoring, 10, { seed: 12345 }).map(g => g.nums.join(','));

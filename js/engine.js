@@ -110,11 +110,17 @@ export function buildStats(draws, opts = {}) {
   const pAppear = zeros(MAX_N + 1);
   for (let n = MIN_N; n <= MAX_N; n++) pAppear[n] = appearCnt[n] / (T || 1);
 
+  // 기대 동시출현을 p_i * p_j * T 로 잡으면 안 된다. 그건 독립 추출 가정인데,
+  // 로또는 45개에서 6개를 비복원으로 뽑는다. 실제로는
+  //   P(i와 j 둘 다) = (6/45) * (5/44)   ...  (6/45)^2 이 아니다
+  // 이 보정을 빼면 모든 lift 가 (5/44)/(6/45) = 0.8523 배로 눌려,
+  // "1.0 = 우연과 같음"이라는 기준선이 성립하지 않는다.
+  const PAIR_ADJ = ((PICK - 1) / (MAX_N - 1)) / (PICK / MAX_N);   // = 225/264
   const lift = Array.from({ length: MAX_N + 1 }, () => zeros(MAX_N + 1));
   for (let i = MIN_N; i <= MAX_N; i++) {
     for (let j = MIN_N; j <= MAX_N; j++) {
       if (i === j) continue;
-      const expected = pAppear[i] * pAppear[j] * T;
+      const expected = pAppear[i] * pAppear[j] * T * PAIR_ADJ;
       lift[i][j] = expected > 0 ? pairCnt[i][j] / expected : 1;
     }
   }
@@ -239,8 +245,30 @@ function sampleSet(weights, rng) {
  * @returns {number}       클수록 선호되는 점수
  */
 export function scoreSetCohesion(set, stats) {
-  // TODO(human)
-  return 0;
+  const d = describeSet(set);
+
+  // --- 1) 쌍 연관성: 15개 쌍의 lift 평균 --------------------------------
+  // lift = 실제 동시출현 / 우연히 기대되는 동시출현. 1.0이면 우연과 같다.
+  // 번호별 점수는 45개를 따로 보므로 "이 6개가 서로 어울리는가"를 원리적으로
+  // 알 수 없다. 조합에서만 나오는 신호라 여기서는 이것이 주된 근거가 된다.
+  //
+  // freqRate 나 gap.hazard 는 일부러 쓰지 않는다. 이미 scoreNumbers 의
+  // 4개 지표에 들어 있어, 여기서 또 쓰면 같은 신호를 두 번 세게 된다.
+  let liftSum = 0, pairs = 0;
+  for (let a = 0; a < d.sorted.length; a++) {
+    for (let b = a + 1; b < d.sorted.length; b++) {
+      liftSum += stats.lift[d.sorted[a]][d.sorted[b]];
+      pairs++;
+    }
+  }
+  const pairLift = pairs > 0 ? liftSum / pairs : 1;
+
+  // --- 2) 구간 분산: 거의 동점일 때만 갈리는 약한 보정 -------------------
+  // 필터는 "3개 구간 이상"이라는 하한만 본다. 실측 최빈값은 4개 구간이므로
+  // 3보다 4를 조금 선호한다. 가중치를 작게 둬서 1)의 판단을 뒤집지 못하게 한다.
+  const spread = 1 - Math.abs(d.bands - 4) / 4;
+
+  return pairLift + 0.03 * spread;
 }
 
 /** 시드 기반 난수 — 같은 시드면 같은 결과가 나와 재현이 가능하다. */
