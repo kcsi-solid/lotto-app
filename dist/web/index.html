@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d1117">
+<meta name="description" content="동행복권 1~최신 회차 데이터를 시계열 순서로 분석해 번호를 생성하는 오프라인 지원 웹앱">
+<title>로또 번호 분석기</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+<header class="topbar">
+  <h1>로또 번호 분석기</h1>
+  <p id="dataStatus" class="status">데이터 불러오는 중…</p>
+</header>
+
+<nav class="tabs" role="tablist">
+  <button class="tab is-active" role="tab" data-tab="generate" aria-selected="true">번호 생성</button>
+  <button class="tab" role="tab" data-tab="analysis" aria-selected="false">분석</button>
+  <button class="tab" role="tab" data-tab="settings" aria-selected="false">설정</button>
+</nav>
+
+<main>
+
+<!-- ================= 번호 생성 ================= -->
+<section id="panel-generate" class="panel is-active" role="tabpanel">
+  <div class="card">
+    <div class="field-row">
+      <label class="field">
+        <span>게임 수</span>
+        <input id="games" type="number" min="1" max="100" step="1" value="5" inputmode="numeric">
+      </label>
+      <label class="field">
+        <span>시드 <small>(비우면 매번 새로)</small></span>
+        <input id="seed" type="text" placeholder="예: 20260913" inputmode="numeric">
+      </label>
+    </div>
+    <label class="check">
+      <input id="useFilters" type="checkbox" checked>
+      <span>역사적 분포 필터 적용 <small>합계·홀짝·연속·구간</small></span>
+    </label>
+    <label class="check">
+      <input id="showProb" type="checkbox" checked>
+      <span>조합 확률과 계산 근거 표시 <small>6개 번호 확률의 곱</small></span>
+    </label>
+    <div class="gen-row">
+      <button id="generate" class="btn btn-primary">번호 생성</button>
+      <button id="reset" class="btn btn-ghost">초기화</button>
+    </div>
+  </div>
+
+  <div id="results" class="results" aria-live="polite"></div>
+</section>
+
+<!-- ================= 분석 ================= -->
+<section id="panel-analysis" class="panel" role="tabpanel">
+  <div class="card">
+    <h2>번호별 점수</h2>
+    <p class="muted">4개 지표를 z-표준화해 가중합한 값입니다. 막대가 길수록 이번 회차 후보 점수가 높습니다.</p>
+    <div id="scoreChart" class="chart"></div>
+  </div>
+
+  <div class="card">
+    <h2>지표별 상위 번호</h2>
+    <div id="featureTop" class="feature-grid"></div>
+  </div>
+
+  <div class="card">
+    <h2>최근 회차</h2>
+    <div id="recentDraws" class="recent"></div>
+  </div>
+
+  <div class="card">
+    <h2>계산 로직</h2>
+    <div class="logic">
+      <h3>1. 시간 가중 출현 빈도 <em>freq</em></h3>
+      <p>회차 <code>t</code>의 가중치는 <code>w = 0.5 ^ (경과회차 / 반감기)</code>입니다.
+         반감기 260회차(약 5년)면 5년 전 회차의 영향력은 지금의 절반입니다.
+         단순 누적 빈도와 달리 최근 경향에 더 큰 비중을 둡니다.</p>
+
+      <h3>2. 회차 간 마르코프 전이 <em>markov</em> — 여기가 "순서" 로직입니다</h3>
+      <p>1회 → 2회 → … → 최신 회차라는 <strong>실제 시간 순서</strong>를 따라
+         <code>P(j가 t+1회에 등장 | i가 t회에 등장)</code> 전이확률 45×45 행렬을 만듭니다.
+         직전 회차에 나온 6개 번호에서 각 후보 <code>j</code>로 가는 전이확률의 평균이 점수입니다.
+         행렬의 대각선(<code>i = j</code>)은 같은 번호가 연속 회차에 다시 나오는 비율을 그대로 담습니다.
+         단순 빈도 집계로는 절대 나오지 않는, 순서에서만 얻을 수 있는 정보입니다.</p>
+
+      <h3>3. 간격 분석 <em>gap</em></h3>
+      <p>번호마다 등장 간격의 평균을 구하고, <code>hazard = 현재 미등장 회차 / 그 번호의 평균 간격</code>을
+         점수로 씁니다. "전체 평균보다 오래 안 나온 번호"가 아니라
+         <strong>"자기 리듬보다 밀린 번호"</strong>를 찾는 것이 핵심입니다.</p>
+
+      <h3>4. 오름차순 위치 분포 <em>position</em></h3>
+      <p>당첨번호를 작은 수부터 늘어놓았을 때 1번째 자리에는 낮은 수, 6번째 자리에는 높은 수가
+         오는 실제 편향이 있습니다. 6개 자리 중 그 번호가 가장 잘 맞는 자리의 확률을 씁니다.</p>
+
+      <h3>5. 합산과 조합 선택</h3>
+      <p>네 지표는 단위가 서로 달라 그대로 더할 수 없습니다. 각각
+         <code>z = (값 − 평균) / 표준편차</code>로 표준화한 뒤 가중합합니다
+         (기본 freq .30 / markov .30 / gap .25 / position .15).</p>
+      <p>1게임째는 점수 상위 6개를 결정론적으로 뽑습니다. 2게임째부터는
+         <code>softmax(점수 / temperature)</code> 가중치로 중복 없이 표본추출해
+         점수 분포는 따르되 게임마다 다른 조합이 나오게 합니다.</p>
+
+      <h3>6. 역사적 분포 필터</h3>
+      <p id="filterExplain" class="muted">…</p>
+    </div>
+  </div>
+
+  <div class="card note">
+    <h2>솔직한 한계</h2>
+    <p>실제 1241회차를 검증한 결과, 직전 회차 번호가 다음 회차에 다시 나오는 개수는
+       평균 <strong>0.827개</strong>인데 완전 무작위일 때의 기대값이 <strong>0.800개</strong>입니다.
+       차이가 거의 없습니다. 즉 이 데이터는 로또가 무작위에 매우 가깝다고 말합니다.</p>
+    <p>이 프로그램의 목적은 당첨 확률을 높이는 것이 아니라,
+       <strong>근거를 설명할 수 있고 같은 시드로 재현 가능한 번호 선택</strong>입니다.
+       1등 확률은 어떤 방법을 쓰든 8,145,060분의 1로 동일합니다.</p>
+  </div>
+</section>
+
+<!-- ================= 설정 ================= -->
+<section id="panel-settings" class="panel" role="tabpanel">
+  <div class="card">
+    <h2>지표 가중치</h2>
+    <p class="muted">합이 1이 아니어도 됩니다. 상대적 비율만 의미가 있습니다.</p>
+    <label class="slider"><span>출현 빈도 <b id="wFreqVal">0.30</b></span>
+      <input id="wFreq" type="range" min="0" max="1" step="0.05" value="0.30"></label>
+    <label class="slider"><span>마르코프 전이 <b id="wMarkovVal">0.30</b></span>
+      <input id="wMarkov" type="range" min="0" max="1" step="0.05" value="0.30"></label>
+    <label class="slider"><span>간격 <b id="wGapVal">0.25</b></span>
+      <input id="wGap" type="range" min="0" max="1" step="0.05" value="0.25"></label>
+    <label class="slider"><span>위치 분포 <b id="wPosVal">0.15</b></span>
+      <input id="wPos" type="range" min="0" max="1" step="0.05" value="0.15"></label>
+    <label class="slider"><span>반감기 <b id="halfLifeVal">260</b>회차</span>
+      <input id="halfLife" type="range" min="20" max="1200" step="20" value="260"></label>
+    <label class="slider"><span>다양성 temperature <b id="tempVal">0.6</b></span>
+      <input id="temperature" type="range" min="0.1" max="2" step="0.1" value="0.6"></label>
+  </div>
+
+  <div class="card">
+    <h2>데이터 갱신</h2>
+    <p class="muted">
+      최신 회차만 증분으로 가져옵니다. <code>{draw}</code> 자리에 회차 번호가 들어갑니다.
+    </p>
+    <label class="field">
+      <span>엔드포인트</span>
+      <input id="endpoint" type="url" spellcheck="false" autocapitalize="off">
+    </label>
+    <button id="updateData" class="btn">최신 회차 가져오기</button>
+    <p id="updateStatus" class="status" aria-live="polite"></p>
+
+    <details class="sub">
+      <summary>수동으로 가져오기 (동행복권이 차단될 때)</summary>
+      <p class="muted">
+        동행복권은 봇 차단이 걸려 있어 외부에서 직접 읽을 수 없습니다.
+        브라우저에서 <code>dhlottery.co.kr</code>을 연 뒤 개발자도구 콘솔에
+        <code>tools/collect-in-browser.js</code> 내용을 붙여넣으면 JSON 파일이 내려받아집니다.
+        그 파일을 아래에서 가져오세요.
+      </p>
+      <input id="importFile" type="file" accept="application/json,.json">
+      <p id="importStatus" class="status" aria-live="polite"></p>
+    </details>
+  </div>
+
+  <div class="card">
+    <h2>API 키</h2>
+    <p class="muted">
+      키가 필요한 엔드포인트를 쓸 때만 입력하세요. 기본 엔드포인트는 키가 필요 없습니다.
+    </p>
+    <label class="field">
+      <span>키</span>
+      <input id="apiKey" type="password" autocomplete="off" spellcheck="false" placeholder="키 입력">
+    </label>
+    <div class="field-row">
+      <label class="field"><span>헤더 이름</span>
+        <input id="authHeader" type="text" spellcheck="false" value="Authorization"></label>
+      <label class="field"><span>접두어</span>
+        <input id="authScheme" type="text" spellcheck="false" value="Bearer"></label>
+    </div>
+    <div class="btn-row">
+      <button id="saveKey" class="btn">저장</button>
+      <button id="toggleKey" class="btn btn-ghost">보기</button>
+      <button id="deleteKey" class="btn btn-danger">삭제</button>
+    </div>
+    <p id="keyStatus" class="status"></p>
+
+    <div class="privacy">
+      <h3>이 앱이 키를 다루는 방식</h3>
+      <ul>
+        <li>키는 <strong>이 기기의 브라우저 저장소에만</strong> 보관하며 어떤 서버로도 보내지 않습니다.</li>
+        <li>전송이 필요할 때는 <strong>URL이 아닌 HTTP 헤더</strong>로만 보냅니다.
+            URL 쿼리에 넣으면 브라우저 기록·중계 서버 로그·Referer 헤더에 평문으로 남습니다.</li>
+        <li>키는 콘솔에 출력하지 않고, <strong>결과 복사·내보내기에도 포함하지 않습니다.</strong></li>
+        <li>화면에는 항상 마스킹해 표시하고 '보기'를 누를 때만 원문을 드러냅니다.</li>
+        <li>주의: 브라우저 저장소는 암호화되지 않습니다. 공용 PC에서는 쓰고 나서 삭제하세요.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <button id="resetAll" class="btn btn-ghost">설정 초기화</button>
+  </div>
+</section>
+
+</main>
+
+<footer class="foot">
+  <p>본 프로그램은 통계 분석 도구이며 당첨을 보장하지 않습니다. 1등 확률은 8,145,060분의 1입니다.</p>
+</footer>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

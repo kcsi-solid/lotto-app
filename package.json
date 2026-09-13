@@ -10,7 +10,9 @@
     "test:engine": "node tools/selftest.mjs",
     "test:ui": "node tools/uitest.mjs",
     "backtest": "node tools/backtest.mjs",
-    "fetch": "python tools/fetch_draws.py"
+    "fetch": "python tools/fetch_draws.py",
+    "build": "node tools/build.mjs",
+    "test:dist": "node tools/disttest.mjs"
   },
   "devDependencies": {
     "jsdom": "^30.0.0"

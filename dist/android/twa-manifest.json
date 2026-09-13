@@ -1,0 +1,23 @@
+{
+  "packageId": "kr.kcseo.lotto",
+  "host": "<아이디>.github.io",
+  "name": "로또 번호 분석기",
+  "launcherName": "로또분석",
+  "display": "standalone",
+  "themeColor": "#0d1117",
+  "navigationColor": "#0d1117",
+  "backgroundColor": "#0d1117",
+  "startUrl": "/",
+  "iconUrl": "https://<아이디>.github.io/lotto-app/icons/icon-512.png",
+  "maskableIconUrl": "https://<아이디>.github.io/lotto-app/icons/icon-512.png",
+  "appVersionName": "1.0.0",
+  "appVersionCode": 1,
+  "shortcuts": [],
+  "signingKey": {
+    "path": "",
+    "alias": ""
+  },
+  "orientation": "portrait",
+  "fallbackType": "customtabs",
+  "enableNotifications": false
+}
