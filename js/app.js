@@ -52,9 +52,33 @@ function modelProbabilities() {
   return out;
 }
 
-/** 확률 표시용 포맷. 10% 미만은 소수 첫째 자리까지 보여준다. */
-function fmtProb(p) {
-  return (p < 10 ? p.toFixed(1) : Math.round(p)) + '%';
+/**
+ * 조합 확률 = 6개 번호의 모델 확률을 모두 곱한 값 (0~1 사이의 분수).
+ *
+ * 주의: 곱셈은 6번의 추출이 서로 독립이라고 가정한다. 실제 로또는 비복원
+ * 추출이라 이 값은 엄밀한 결합확률이 아니다. 조합끼리 비교하는 지표로 쓴다.
+ */
+function comboProbability(nums, prob) {
+  let p = 1;
+  for (const n of nums) p *= prob[n] / 100;
+  return p;
+}
+
+/** 값의 크기에 따라 자릿수를 조절한다. 범위가 1%에서 1e-9%까지 벌어진다. */
+function fmtComboProb(p) {
+  const pct = p * 100;
+  if (pct >= 1) return pct.toFixed(2) + '%';
+  if (pct >= 0.01) return pct.toFixed(4) + '%';
+  if (pct >= 0.000001) return pct.toFixed(7).replace(/0+$/, '') + '%';
+  return pct.toExponential(2) + '%';
+}
+
+/** 균등 조합 대비 몇 배인지. 곱한 값 자체보다 이쪽이 읽힌다. */
+function fmtRatio(r) {
+  if (r >= 100) return Math.round(r).toLocaleString('ko-KR') + '배';
+  if (r >= 10) return r.toFixed(1) + '배';
+  if (r >= 1) return r.toFixed(2) + '배';
+  return r.toFixed(3) + '배';
 }
 
 function setStatus(el, msg, kind = '') {
@@ -84,6 +108,35 @@ function recompute() {
 
 /* ------------------------------------------------------------ 결과 그리기 */
 
+/**
+ * 조합 확률이 어떻게 나온 값인지 계산 근거를 보여준다.
+ * 가중치와 temperature 는 현재 설정값을 그대로 읽어, 슬라이더를 움직이면
+ * 표시된 식도 함께 바뀐다.
+ */
+function basisHtml(unitPct, evenCombo) {
+  const w = settings.weights;
+  const t = settings.temperature;
+  return '<div class="basis">'
+    + '<div class="basis-title">조합 확률 계산 근거</div>'
+    + '<ol>'
+    + '<li><b>번호 점수</b> = 빈도×' + w.freq.toFixed(2)
+      + ' + 마르코프×' + w.markov.toFixed(2)
+      + ' + 간격×' + w.gap.toFixed(2)
+      + ' + 위치×' + w.position.toFixed(2)
+      + ' <span class="basis-sub">(네 지표를 각각 z-표준화한 뒤 가중합)</span></li>'
+    + '<li><b>번호 확률</b> = softmax(점수 ÷ ' + t.toFixed(1) + ') × 6'
+      + ' <span class="basis-sub">45개 합이 6.0이 되고, 균등하면 '
+      + unitPct.toFixed(1) + '%</span></li>'
+    + '<li><b>조합 확률</b> = 6개 번호 확률을 모두 곱함'
+      + ' <span class="basis-sub">균등 조합이면 (' + unitPct.toFixed(1) + '%)<sup>6</sup> = '
+      + fmtComboProb(evenCombo) + '</span></li>'
+    + '</ol>'
+    + '<p class="basis-warn">곱셈은 6번의 추출이 <b>서로 독립</b>이라고 가정한 값입니다. '
+    + '실제 로또는 비복원 추출이라 엄밀한 결합확률이 아니며, <b>조합끼리 비교하는 지표</b>로만 쓰세요. '
+    + '실제 당첨 확률은 어떤 조합이든 1/8,145,060 = 0.0000123%로 같습니다.</p>'
+    + '</div>';
+}
+
 function renderGames(games) {
   const box = $('results');
   lastGames = games;
@@ -91,13 +144,12 @@ function renderGames(games) {
 
   const showProb = settings.showProb;
   const prob = showProb ? modelProbabilities() : null;
-  const baseline = (CONST.PICK / CONST.MAX_N * 100).toFixed(1);   // 13.3%
+  const unitPct = CONST.PICK / CONST.MAX_N * 100;                    // 13.3%
+  const evenCombo = Math.pow(CONST.PICK / CONST.MAX_N, CONST.PICK);  // (6/45)^6
 
   let html = '';
-  if (showProb) {
-    html += '<p class="prob-note">번호 아래 %는 <strong>이 모델이 그 번호를 고를 확률</strong>입니다. '
-          + '실제 당첨 확률은 45개 번호 모두 ' + baseline + '%로 같습니다.</p>';
-  }
+  if (showProb) html += basisHtml(unitPct, evenCombo);
+
   for (let start = 0; start < games.length; start += BATCH) {
     const chunk = games.slice(start, start + BATCH);
     const groupNo = Math.floor(start / BATCH) + 1;
@@ -106,18 +158,19 @@ function renderGames(games) {
           + (start + 1) + '~' + (start + chunk.length) + '게임</strong>'
           + '<span>' + chunk.length + '게임</span></div>';
     chunk.forEach((g, i) => {
-      const balls = g.nums.map(n => {
-        if (!showProb) return ballHtml(n);
-        // 기준선(13.3%)보다 높으면 강조해 "왜 뽑혔는지"가 드러나게 한다
-        const cls = prob[n] >= Number(baseline) ? ' up' : '';
-        return '<span class="ball-cell">' + ballHtml(n)
-             + '<span class="ball-p' + cls + '">' + fmtProb(prob[n]) + '</span></span>';
-      }).join('');
-      html += '<div class="game' + (showProb ? ' with-prob' : '') + '">'
+      html += '<div class="game">'
+        + '<div class="game-top">'
         + '<span class="game-no">' + String.fromCharCode(65 + i) + '</span>'
-        + '<span class="balls">' + balls + '</span>'
-        + '<span class="game-meta">합 ' + g.sum + '<br>홀' + g.odd + '·짝' + g.even + '</span>'
+        + '<span class="balls">' + g.nums.map(n => ballHtml(n)).join('') + '</span>'
         + '</div>';
+      if (showProb) {
+        const p = comboProbability(g.nums, prob);
+        html += '<div class="game-foot">'
+          + '<span class="combo-p">' + fmtComboProb(p) + '</span>'
+          + '<span class="combo-x">균등 대비 ' + fmtRatio(p / evenCombo) + '</span>'
+          + '</div>';
+      }
+      html += '</div>';
     });
     html += '</div>';
   }

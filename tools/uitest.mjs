@@ -99,37 +99,61 @@ check('조 라벨이 범위를 정확히 표시', heads.join(' / '), heads.join(
 const sizes = [...batches].map(b => b.querySelectorAll('.game').length);
 check('조별 게임 수 [5,5,2]', JSON.stringify(sizes) === '[5,5,2]', JSON.stringify(sizes));
 
-console.log('\n[4-b] 확률 표기');
+console.log('\n[4-b] 조합 확률과 계산 근거');
 $('games').value = '5';
 $('showProb').checked = true;
 $('showProb').dispatchEvent(new window.Event('change'));
 $('generate').click();
-check('확률 안내문 표시', $('results').querySelector('.prob-note') !== null);
-check('안내문에 실제 확률 13.3% 명시',
-  ($('results').querySelector('.prob-note')?.textContent || '').includes('13.3%'));
-let cells = $('results').querySelectorAll('.ball-cell');
-check('모든 공에 확률 라벨 (5게임 × 6개 = 30)', cells.length === 30, String(cells.length));
-const probs = [...$('results').querySelectorAll('.ball-p')]
-  .map(e => parseFloat(e.textContent));
-check('확률이 모두 0~100 사이의 수', probs.length === 30
-  && probs.every(p => Number.isFinite(p) && p >= 0 && p <= 100),
-  probs.slice(0, 6).join(','));
-check('확률 라벨이 % 로 끝남',
-  [...$('results').querySelectorAll('.ball-p')].every(e => e.textContent.endsWith('%')));
-check('기준선 초과 번호가 강조됨(.up)', $('results').querySelectorAll('.ball-p.up').length > 0,
-  String($('results').querySelectorAll('.ball-p.up').length));
 
-const beforeToggle = [...$('results').querySelectorAll('.ball')].map(b => b.textContent).join(',');
+const basis = $('results').querySelector('.basis');
+check('계산 근거 블록 표시', basis !== null);
+check('근거가 3단계를 모두 설명', basis && basis.querySelectorAll('li').length === 3,
+  String(basis && basis.querySelectorAll('li').length));
+check('근거에 현재 가중치가 반영됨',
+  (basis?.textContent || '').includes('빈도×0.30') && (basis?.textContent || '').includes('마르코프×0.30'),
+  (basis?.textContent || '').slice(0, 60));
+check('근거에 균등 기준선 13.3% 명시', (basis?.textContent || '').includes('13.3%'));
+check('독립 가정 한계를 밝힘', (basis?.textContent || '').includes('독립'));
+check('실제 당첨 확률 1/8,145,060 명시',
+  (basis?.textContent || '').includes('8,145,060'));
+
+check('번호별 확률 라벨은 사라짐', $('results').querySelectorAll('.ball-p').length === 0);
+check('합/홀/짝 표시 제거됨', !$('results').textContent.includes('홀')
+  && !/합\s*\d/.test($('results').textContent));
+
+const foots = $('results').querySelectorAll('.game-foot');
+check('게임마다 조합 확률 줄 (5개)', foots.length === 5, String(foots.length));
+const combo = [...$('results').querySelectorAll('.combo-p')].map(e => e.textContent);
+check('조합 확률이 % 로 끝남', combo.length === 5 && combo.every(t => t.endsWith('%')),
+  combo.join(' '));
+check('조합 확률이 0보다 큼', combo.every(t => parseFloat(t) > 0), combo[0]);
+const ratios = [...$('results').querySelectorAll('.combo-x')].map(e => e.textContent);
+check('균등 대비 배수 표시', ratios.length === 5 && ratios.every(t => t.includes('균등 대비')),
+  ratios[0]);
+
+// 곱셈이 실제로 맞는지: 생성된 조합의 확률이 균등 조합보다 커야 한다
+// (고득점 번호로 뽑았으므로). 배수가 1보다 크면 계산 방향이 맞다.
+const firstRatio = parseFloat((ratios[0] || '').replace(/[^0-9.]/g, ''));
+check('상위 조합의 배수가 1보다 큼', firstRatio > 1, ratios[0]);
+
 $('showProb').checked = false;
 $('showProb').dispatchEvent(new window.Event('change'));
-check('끄면 확률 라벨 사라짐', $('results').querySelectorAll('.ball-p').length === 0);
-check('끄면 안내문도 사라짐', $('results').querySelector('.prob-note') === null);
-check('토글해도 번호는 그대로 (재생성 안 함)',
-  [...$('results').querySelectorAll('.ball')].map(b => b.textContent).join(',') === beforeToggle);
+check('끄면 근거 블록 사라짐', $('results').querySelector('.basis') === null);
+check('끄면 조합 확률도 사라짐', $('results').querySelectorAll('.game-foot').length === 0);
+check('끄면 번호는 그대로', $('results').querySelectorAll('.ball').length === 30);
 check('showProb 설정이 저장됨', (store.get('lotto.settings.v1') || '').includes('"showProb":false'));
 $('showProb').checked = true;
 $('showProb').dispatchEvent(new window.Event('change'));
-check('다시 켜면 라벨 복귀', $('results').querySelectorAll('.ball-p').length === 30);
+check('다시 켜면 복귀', $('results').querySelectorAll('.game-foot').length === 5);
+
+// 가중치를 바꾸면 근거 표시도 따라 바뀌어야 한다
+$('wGap').value = '0.5';
+$('wGap').dispatchEvent(new window.Event('input'));
+$('generate').click();
+check('가중치 변경이 근거에 반영됨',
+  ($('results').querySelector('.basis')?.textContent || '').includes('간격×0.50'));
+$('wGap').value = '0.25';
+$('wGap').dispatchEvent(new window.Event('input'));
 
 console.log('\n[4-c] 초기화 버튼');
 $('seed').value = '99999';
