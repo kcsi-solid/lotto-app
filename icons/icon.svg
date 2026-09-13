@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<rect width="512" height="512" rx="96" fill="#0d1117"/>
+<circle cx="176" cy="196" r="66" fill="#fbc400"/>
+<circle cx="336" cy="196" r="66" fill="#69c8f2"/>
+<circle cx="176" cy="352" r="66" fill="#ff7272"/>
+<circle cx="336" cy="352" r="66" fill="#b0d840"/>
+<text x="176" y="222" font-family="Segoe UI,Arial" font-size="70" font-weight="700" fill="#4a3600" text-anchor="middle">4</text>
+<text x="336" y="222" font-family="Segoe UI,Arial" font-size="70" font-weight="700" fill="#093243" text-anchor="middle">5</text>
+<text x="176" y="378" font-family="Segoe UI,Arial" font-size="70" font-weight="700" fill="#fff" text-anchor="middle">6</text>
+<text x="336" y="378" font-family="Segoe UI,Arial" font-size="70" font-weight="700" fill="#253000" text-anchor="middle">4</text>
+</svg>

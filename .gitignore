@@ -1,0 +1,18 @@
+# 의존성 — 테스트용 jsdom만 쓰므로 저장소에 넣지 않는다
+node_modules/
+package-lock.json
+
+# Python
+__pycache__/
+*.py[cod]
+
+# 편집기 / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 임시 파일
+*.log
+*.tmp

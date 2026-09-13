@@ -1,0 +1,8 @@
+# 이 저장소는 Windows(로컬)와 Linux(GitHub Actions) 양쪽에서 커밋된다.
+# 줄바꿈을 저장소 안에서 LF로 통일해, 같은 내용이 줄바꿈 차이만으로
+# "변경됨"으로 잡히는 일을 막는다.
+* text=auto eol=lf
+
+# 바이너리 — 손대지 않는다
+*.png binary
+*.ico binary

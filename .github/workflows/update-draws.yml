@@ -1,0 +1,76 @@
+name: 당첨번호 자동 갱신
+
+# 로또 추첨은 매주 토요일 20:45 KST.
+# 여유를 두고 일요일 01:00 KST 에 실행한다.
+# GitHub Actions 는 UTC 기준이므로 토요일 16:00 UTC = 일요일 01:00 KST.
+on:
+  schedule:
+    - cron: '0 16 * * 6'
+  workflow_dispatch:        # 수동 실행 (테스트용)
+
+permissions:
+  contents: write           # data/draws.json 커밋에 필요
+
+concurrency:
+  group: update-draws
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 저장소 체크아웃
+        uses: actions/checkout@v4
+
+      - name: Python 설치
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Node 설치
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 최신 회차 가져오기
+        # 실패하면 여기서 워크플로가 멈춘다.
+        # fetch_draws.py 는 유효한 회차가 없으면 종료 코드 1을 돌려주므로,
+        # 잘못된 데이터가 커밋되는 일은 없다.
+        run: python tools/fetch_draws.py
+
+      - name: 데이터 무결성 검증
+        # 커밋 전에 한 번 더 확인한다. 깨진 파일을 배포하지 않기 위해서다.
+        run: |
+          python - <<'PY'
+          import json, sys
+          db = json.load(open('data/draws.json', encoding='utf-8'))
+          draws = db['draws']
+          nos = [d[0] for d in draws]
+          assert len(draws) > 1000, f'회차 수가 너무 적다: {len(draws)}'
+          assert nos == sorted(set(nos)), '회차 번호가 정렬되지 않았거나 중복이다'
+          assert nos[-1] - nos[0] + 1 == len(nos), f'빠진 회차가 있다'
+          for d in draws:
+              ns = d[2:8]
+              assert len(set(ns)) == 6, f'{d[0]}회 번호 중복'
+              assert all(1 <= n <= 45 for n in ns), f'{d[0]}회 범위 이탈'
+              assert ns == sorted(ns), f'{d[0]}회 정렬 오류'
+          print(f'검증 통과: {len(draws)}회차 (1~{nos[-1]})')
+          PY
+
+      - name: 엔진 회귀 검사
+        # 새 데이터로도 엔진이 정상 동작하는지 확인한다 (jsdom 불필요).
+        run: node tools/selftest.mjs
+
+      - name: 변경분 커밋
+        run: |
+          if git diff --quiet -- data/draws.json; then
+            echo "새 회차 없음. 커밋하지 않는다."
+            exit 0
+          fi
+          LATEST=$(python -c "import json;print(json.load(open('data/draws.json',encoding='utf-8'))['latest'])")
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/draws.json
+          git commit -m "데이터 갱신: ${LATEST}회차까지"
+          git push
+          echo "${LATEST}회차까지 갱신 완료."
