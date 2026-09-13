@@ -99,6 +99,52 @@ check('조 라벨이 범위를 정확히 표시', heads.join(' / '), heads.join(
 const sizes = [...batches].map(b => b.querySelectorAll('.game').length);
 check('조별 게임 수 [5,5,2]', JSON.stringify(sizes) === '[5,5,2]', JSON.stringify(sizes));
 
+console.log('\n[4-b] 확률 표기');
+$('games').value = '5';
+$('showProb').checked = true;
+$('showProb').dispatchEvent(new window.Event('change'));
+$('generate').click();
+check('확률 안내문 표시', $('results').querySelector('.prob-note') !== null);
+check('안내문에 실제 확률 13.3% 명시',
+  ($('results').querySelector('.prob-note')?.textContent || '').includes('13.3%'));
+let cells = $('results').querySelectorAll('.ball-cell');
+check('모든 공에 확률 라벨 (5게임 × 6개 = 30)', cells.length === 30, String(cells.length));
+const probs = [...$('results').querySelectorAll('.ball-p')]
+  .map(e => parseFloat(e.textContent));
+check('확률이 모두 0~100 사이의 수', probs.length === 30
+  && probs.every(p => Number.isFinite(p) && p >= 0 && p <= 100),
+  probs.slice(0, 6).join(','));
+check('확률 라벨이 % 로 끝남',
+  [...$('results').querySelectorAll('.ball-p')].every(e => e.textContent.endsWith('%')));
+check('기준선 초과 번호가 강조됨(.up)', $('results').querySelectorAll('.ball-p.up').length > 0,
+  String($('results').querySelectorAll('.ball-p.up').length));
+
+const beforeToggle = [...$('results').querySelectorAll('.ball')].map(b => b.textContent).join(',');
+$('showProb').checked = false;
+$('showProb').dispatchEvent(new window.Event('change'));
+check('끄면 확률 라벨 사라짐', $('results').querySelectorAll('.ball-p').length === 0);
+check('끄면 안내문도 사라짐', $('results').querySelector('.prob-note') === null);
+check('토글해도 번호는 그대로 (재생성 안 함)',
+  [...$('results').querySelectorAll('.ball')].map(b => b.textContent).join(',') === beforeToggle);
+check('showProb 설정이 저장됨', (store.get('lotto.settings.v1') || '').includes('"showProb":false'));
+$('showProb').checked = true;
+$('showProb').dispatchEvent(new window.Event('change'));
+check('다시 켜면 라벨 복귀', $('results').querySelectorAll('.ball-p').length === 30);
+
+console.log('\n[4-c] 초기화 버튼');
+$('seed').value = '99999';
+$('seed').dispatchEvent(new window.Event('change'));
+$('generate').click();
+check('초기화 전 결과 있음', $('results').querySelectorAll('.game').length > 0);
+$('reset').click();
+check('결과가 지워짐', $('results').querySelectorAll('.game').length === 0);
+check('안내 문구로 되돌아감', $('results').textContent.includes('번호 생성을 누르세요'));
+check('시드 입력칸도 비워짐', $('seed').value === '');
+check('저장된 시드도 초기화', !(store.get('lotto.settings.v1') || '').includes('99999'));
+check('초기화 후에도 재생성 가능', (() => { $('generate').click();
+  return $('results').querySelectorAll('.game').length === 5; })());
+check('데이터는 초기화되지 않음', /\d+회차/.test($('dataStatus').textContent));
+
 console.log('\n[5] 시드 재현성 (UI 경로)');
 $('games').value = '5'; $('seed').value = 'abc';
 $('generate').click();

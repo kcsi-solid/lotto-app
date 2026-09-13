@@ -3,7 +3,7 @@
  * 계산은 전부 engine.js가 하고, 이 파일은 입력을 모아 넘기고 결과를 그린다.
  */
 import {
-  buildStats, scoreNumbers, generateGames, DEFAULT_FILTERS, CONST,
+  buildStats, scoreNumbers, generateGames, softmaxWeights, DEFAULT_FILTERS, CONST,
 } from './engine.js';
 import {
   loadSettings, saveSettings, loadApiKey, saveApiKey,
@@ -18,6 +18,7 @@ let db = null;       // 회차 데이터베이스
 let stats = null;    // buildStats 결과
 let scoring = null;  // scoreNumbers 결과
 let settings = loadSettings();
+let lastGames = [];  // 마지막 생성 결과. 표시 옵션만 바뀔 때 다시 뽑지 않고 재렌더링한다.
 
 /* ---------------------------------------------------------------- 유틸 */
 
@@ -31,6 +32,29 @@ function ballClass(n) {
 
 function ballHtml(n, extra = '') {
   return '<span class="ball ' + ballClass(n) + ' ' + extra + '">' + n + '</span>';
+}
+
+/**
+ * 이 모델이 각 번호를 고를 확률(%)을 구한다.
+ *
+ * softmax 가중치는 45개 번호에 대해 합이 1이다. 한 게임에서 6개를 뽑으므로
+ * 6을 곱하면 "그 번호가 이번 조합에 들어갈 확률"이 된다. 균등할 때가 6/45 = 13.3%다.
+ *
+ * 주의: 이것은 '이 생성기가 그 번호를 고를 확률'이지 당첨 확률이 아니다.
+ * 실제 당첨 확률은 45개 번호가 전부 13.3%로 같다. 화면에도 그렇게 적는다.
+ */
+function modelProbabilities() {
+  const w = softmaxWeights(scoring.score, settings.temperature);
+  const out = new Array(CONST.MAX_N + 1).fill(0);
+  for (let n = CONST.MIN_N; n <= CONST.MAX_N; n++) {
+    out[n] = Math.min(99.9, w[n] * CONST.PICK * 100);
+  }
+  return out;
+}
+
+/** 확률 표시용 포맷. 10% 미만은 소수 첫째 자리까지 보여준다. */
+function fmtProb(p) {
+  return (p < 10 ? p.toFixed(1) : Math.round(p)) + '%';
 }
 
 function setStatus(el, msg, kind = '') {
@@ -62,9 +86,18 @@ function recompute() {
 
 function renderGames(games) {
   const box = $('results');
+  lastGames = games;
   if (!games.length) { box.innerHTML = '<p class="empty">생성된 번호가 없습니다.</p>'; return; }
 
+  const showProb = settings.showProb;
+  const prob = showProb ? modelProbabilities() : null;
+  const baseline = (CONST.PICK / CONST.MAX_N * 100).toFixed(1);   // 13.3%
+
   let html = '';
+  if (showProb) {
+    html += '<p class="prob-note">번호 아래 %는 <strong>이 모델이 그 번호를 고를 확률</strong>입니다. '
+          + '실제 당첨 확률은 45개 번호 모두 ' + baseline + '%로 같습니다.</p>';
+  }
   for (let start = 0; start < games.length; start += BATCH) {
     const chunk = games.slice(start, start + BATCH);
     const groupNo = Math.floor(start / BATCH) + 1;
@@ -73,9 +106,16 @@ function renderGames(games) {
           + (start + 1) + '~' + (start + chunk.length) + '게임</strong>'
           + '<span>' + chunk.length + '게임</span></div>';
     chunk.forEach((g, i) => {
-      html += '<div class="game">'
+      const balls = g.nums.map(n => {
+        if (!showProb) return ballHtml(n);
+        // 기준선(13.3%)보다 높으면 강조해 "왜 뽑혔는지"가 드러나게 한다
+        const cls = prob[n] >= Number(baseline) ? ' up' : '';
+        return '<span class="ball-cell">' + ballHtml(n)
+             + '<span class="ball-p' + cls + '">' + fmtProb(prob[n]) + '</span></span>';
+      }).join('');
+      html += '<div class="game' + (showProb ? ' with-prob' : '') + '">'
         + '<span class="game-no">' + String.fromCharCode(65 + i) + '</span>'
-        + '<span class="balls">' + g.nums.map(n => ballHtml(n)).join('') + '</span>'
+        + '<span class="balls">' + balls + '</span>'
         + '<span class="game-meta">합 ' + g.sum + '<br>홀' + g.odd + '·짝' + g.even + '</span>'
         + '</div>';
     });
@@ -182,6 +222,7 @@ function syncSettingsToForm() {
   $('games').value = settings.games;
   $('seed').value = settings.seed || '';
   $('useFilters').checked = settings.useFilters;
+  $('showProb').checked = settings.showProb;
   $('endpoint').value = settings.endpoint;
   $('authHeader').value = settings.authHeader;
   $('authScheme').value = settings.authScheme;
@@ -334,7 +375,30 @@ function wireTabs() {
   });
 }
 
+/** 결과 영역을 생성 전 상태로 되돌린다. 설정과 데이터는 건드리지 않는다. */
+function clearResults(alsoSeed = true) {
+  $('results').innerHTML = '<p class="empty">게임 수를 정하고 번호 생성을 누르세요.</p>';
+  lastGames = [];
+  if (alsoSeed) {
+    $('seed').value = '';
+    settings.seed = '';
+    saveSettings(settings);
+  }
+}
+
 function wireGenerate() {
+  $('reset').onclick = () => {
+    clearResults(true);
+    $('reset').textContent = '초기화됨';
+    setTimeout(() => { $('reset').textContent = '초기화'; }, 1200);
+  };
+
+  $('showProb').addEventListener('change', () => {
+    settings.showProb = $('showProb').checked;
+    saveSettings(settings);
+    if (lastGames.length) renderGames(lastGames);   // 다시 뽑지 않고 표시만 바꾼다
+  });
+
   $('generate').onclick = () => {
     const count = normalizeGameCount($('games').value, settings.games);
     $('games').value = count;
@@ -381,7 +445,7 @@ async function main() {
   recompute();
   renderDataStatus();
   renderAnalysis();
-  $('results').innerHTML = '<p class="empty">게임 수를 정하고 번호 생성을 누르세요.</p>';
+  clearResults(false);   // 시작 시에는 저장된 시드를 지우지 않는다
 
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(() => { /* 오프라인 캐시는 없어도 앱은 동작한다 */ });

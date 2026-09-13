@@ -45,7 +45,14 @@
       <input id="useFilters" type="checkbox" checked>
       <span>역사적 분포 필터 적용 <small>합계·홀짝·연속·구간</small></span>
     </label>
-    <button id="generate" class="btn btn-primary">번호 생성</button>
+    <label class="check">
+      <input id="showProb" type="checkbox" checked>
+      <span>번호 옆에 확률 표시 <small>모델 추정 선택 확률</small></span>
+    </label>
+    <div class="gen-row">
+      <button id="generate" class="btn btn-primary">번호 생성</button>
+      <button id="reset" class="btn btn-ghost">초기화</button>
+    </div>
   </div>
 
   <div id="results" class="results" aria-live="polite"></div>

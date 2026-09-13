@@ -17,6 +17,7 @@ export const DEFAULT_SETTINGS = {
   halfLife: 260,
   temperature: 0.6,
   useFilters: true,
+  showProb: true,
   weights: { freq: 0.30, markov: 0.30, gap: 0.25, position: 0.15 },
   endpoint: 'https://smok95.github.io/lotto/results/{draw}.json',
   authHeader: 'Authorization',
