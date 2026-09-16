@@ -229,6 +229,33 @@ check('999 입력 → 100게임으로 제한', many === 100, String(many));
 check('100게임 → 20개 조', $('results').querySelectorAll('.batch').length === 20,
   String($('results').querySelectorAll('.batch').length));
 
+console.log('\n[10] 수익화가 웹을 침범하지 않음');
+// 광고와 인앱 결제는 네이티브 전용이다. 웹(GitHub Pages)과 단일 파일에서
+// '광고 제거' 카드가 보이거나 배너 여백이 잡히면 그 자체가 버그다.
+check('웹에서 광고 제거 카드가 숨겨져 있음', $('adFreeCard').hidden);
+check('웹에서 배너 여백(has-ad)이 없음', !window.document.body.classList.contains('has-ad'));
+check('app.js 가 monetize.js 를 정적으로 import 하지 않음',
+  !/^\s*import[^\n]*monetize/m.test(fs.readFileSync(path.join(APP, 'js/app.js'), 'utf8')));
+
+console.log('\n[11] 구매 상태 재조정 정책');
+// reconcileAdFree 는 네트워크도 시각도 보지 않는 순수 함수라 여기서 전 분기를 돌린다.
+// window 셰임이 이미 올라와 있으므로 monetize.js 를 그대로 불러올 수 있다.
+const { reconcileAdFree } = await import(pathToFileURL(path.join(APP, 'js/monetize.js')).href);
+const play = (status, failureStreak = 0) => ({ status, failureStreak });
+
+check('Play 가 구매를 확인하면 캐시와 무관하게 광고 제거',
+  reconcileAdFree(false, play('owned')) === true);
+check('조회 성공 + 구매 없음이면 캐시가 참이어도 광고 복귀',
+  reconcileAdFree(true, play('none')) === false);
+check('조회 실패면 캐시를 그대로 따름 (구매자)',
+  reconcileAdFree(true, play('unavailable', 1)) === true);
+check('조회 실패면 캐시를 그대로 따름 (미구매자)',
+  reconcileAdFree(false, play('unavailable', 1)) === false);
+check('실패가 오래 이어져도 구매자의 광고 제거는 유지 (오프라인이 정상 사용)',
+  reconcileAdFree(true, play('unavailable', 999)) === true);
+check('playResult 가 망가져도 캐시로 버팀',
+  reconcileAdFree(true, undefined) === true && reconcileAdFree(false, {}) === false);
+
 check('전 과정 런타임 오류 없음', errors.length === 0, errors.join(' | '));
 
 console.log('\n결과: ' + pass + ' PASS, ' + fail + ' FAIL');

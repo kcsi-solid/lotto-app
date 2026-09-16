@@ -431,6 +431,30 @@ if (isNative()) {
 > 그래서 그 한 줄을 직접 부릅니다. npm 패키지는 여전히 필요합니다 —
 > `npx cap sync` 가 그걸 보고 **안드로이드 네이티브 라이브러리**를 넣기 때문입니다. JS 쪽만 건너뜁니다.
 
+### 수익화 — 인앱 결제 '광고 제거'
+
+같은 파일(`js/monetize.js`)에서 `@capgo/native-purchases` 플러그인을 AdMob 과 **똑같은 방식**으로
+부릅니다 — `Capacitor.nativePromise('NativePurchases', …)`. 상품은 Play Console 의
+**비소모성** 인앱 상품 `remove_ads` 하나이며, 이 ID 는 `REMOVE_ADS_PRODUCT_ID` 와 일치해야 합니다.
+
+| 하는 일 | 방법 |
+|---|---|
+| 카드 노출 | `isBillingSupported()` 가 참일 때만 `#adFreeCard` 의 `hidden` 해제. 웹에서는 끝까지 숨어 있다 |
+| 가격 표시 | `getProduct()` 의 `priceString` — 통화·지역은 Play 가 정한다. 앱에 숫자를 하드코딩하지 않는다 |
+| 구매 | `purchaseProduct()`. 자동 승인 기본값을 그대로 쓴다 (Android 는 3일 내 미승인 시 Play 가 자동 환불) |
+| 복원·검증 | `getPurchases({productType:'inapp'})` 조회 결과로 기기 캐시를 바로잡는다 |
+
+**진실의 근원은 Google Play 이고 `localStorage` 는 캐시일 뿐입니다.** 그 둘이 어긋날 때의 판단은
+`reconcileAdFree(cached, playResult)` 한 함수에 모아 두었습니다.
+
+- 조회에 **성공**하면 Play 를 따른다 — 구매가 없으면 캐시가 참이어도 광고를 되살린다
+- 조회에 **실패**하면 캐시를 그대로 믿는다 — 연속 실패 횟수와 무관하게
+
+두 번째가 중요합니다. 이 앱은 오프라인 동작이 핵심이라 결제 조회 실패가 **수백 번 이어지는 것이
+정상 사용**입니다. 실패 횟수로 캐시를 버리면 가장 오래 오프라인으로 쓴 사용자가 가장 크게 손해를 봅니다.
+캐시를 조작한 사람에게 잃는 것은 광고 노출 몇 건이지만, 돈을 낸 사용자에게 광고를 띄워 잃는 것은
+환불 요구와 별점입니다. 네트워크도 시각도 보지 않는 순수 함수라 `tools/uitest.mjs` 가 전 분기를 검사합니다.
+
 ### 서명 — Play 업로드에 필수
 
 `keystore.properties` 가 없으면 릴리스 빌드가 **서명 없이** 나옵니다(로컬 확인용으로는 충분).
