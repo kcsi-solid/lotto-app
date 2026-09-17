@@ -26,3 +26,6 @@ desktop.ini
 *.jks
 keystore.properties
 android/local.properties
+
+# AdMob 실제 광고 ID (공개 저장소에 두지 않는다)
+admob.local.md
