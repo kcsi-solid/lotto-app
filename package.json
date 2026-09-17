@@ -13,6 +13,7 @@
     "fetch": "python tools/fetch_draws.py",
     "build": "node tools/build.mjs",
     "test:dist": "node tools/disttest.mjs",
+    "screenshots": "node tools/make_screenshots.mjs",
     "android:sync": "npm run build && npx cap sync android",
     "android": "npm run android:sync && npx cap run android",
     "android:open": "npm run android:sync && npx cap open android",
@@ -20,7 +21,8 @@
   },
   "devDependencies": {
     "@capacitor/cli": "^8.5.2",
-    "jsdom": "^30.0.0"
+    "jsdom": "^30.0.0",
+    "puppeteer": "^25.11.0"
   },
   "dependencies": {
     "@capacitor-community/admob": "^8.1.0",

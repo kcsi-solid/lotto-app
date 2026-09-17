@@ -237,6 +237,22 @@ check('웹에서 배너 여백(has-ad)이 없음', !window.document.body.classLi
 check('app.js 가 monetize.js 를 정적으로 import 하지 않음',
   !/^\s*import[^\n]*monetize/m.test(fs.readFileSync(path.join(APP, 'js/app.js'), 'utf8')));
 
+console.log('\n[10-1] 점수 막대가 실제로 그려짐');
+// .bar-fill 이 인라인이면 width 가 먹지 않아 막대가 0px 로 사라진다.
+// 화면에는 빈 트랙만 남아서 눈으로 보기 전에는 모르고 지나가기 쉬운 종류의 버그다.
+{
+  const cssText = fs.readFileSync(path.join(APP, 'css/app.css'), 'utf8');
+  const rule = /\.bar-fill\s*\{([^}]*)\}/.exec(cssText);
+  check('.bar-fill 규칙이 존재', Boolean(rule));
+  check('.bar-fill 이 블록 요소 (인라인이면 width 가 무시됨)',
+    Boolean(rule) && /display\s*:\s*(block|flex|inline-block)/.test(rule[1]),
+    rule ? rule[1].trim() : '');
+  const fills = [...$('scoreChart').querySelectorAll('.bar-fill')];
+  check('막대 45개에 모두 width 가 지정됨',
+    fills.length === 45 && fills.every(f => /width:\s*[\d.]+%/.test(f.getAttribute('style') || '')),
+    String(fills.length));
+}
+
 console.log('\n[11] 구매 상태 재조정 정책');
 // reconcileAdFree 는 네트워크도 시각도 보지 않는 순수 함수라 여기서 전 분기를 돌린다.
 // window 셰임이 이미 올라와 있으므로 monetize.js 를 그대로 불러올 수 있다.

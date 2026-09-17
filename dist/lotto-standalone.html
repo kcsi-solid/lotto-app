@@ -207,7 +207,9 @@ details.sub summary { cursor: pointer; font-size: 13.5px; font-weight: 600; }
   font-variant-numeric: tabular-nums;
 }
 .bar-track { flex: 1; height: 13px; background: var(--surface-2); border-radius: 3px; overflow: hidden; }
-.bar-fill { height: 100%; background: var(--accent); border-radius: 3px; }
+/* display:block 이 없으면 인라인이라 width·height 가 먹지 않는다.
+   .bar-track 은 .bar-row(flex)의 자식이라 저절로 블록화되지만, 그 안의 이 요소는 아니다. */
+.bar-fill { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
 .bar-fill.neg { background: var(--line); }
 .bar-val {
   flex: 0 0 44px; text-align: right; color: var(--muted);
