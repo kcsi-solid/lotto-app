@@ -17,6 +17,9 @@
     "android:sync": "npm run build && npx cap sync android",
     "android": "npm run android:sync && npx cap run android",
     "android:open": "npm run android:sync && npx cap open android",
+    "ads:status": "node tools/set-ad-ids.mjs status",
+    "ads:test": "node tools/set-ad-ids.mjs test",
+    "ads:live": "node tools/set-ad-ids.mjs live",
     "android:bundle": "npm run android:sync && cd android && .\\gradlew.bat bundleRelease"
   },
   "devDependencies": {
